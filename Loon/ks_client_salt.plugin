@@ -3,7 +3,7 @@
 #!desc = 捕获登录接口中的 kuaishou.api_client_salt
 #!date = 2025年10月31日
 #!icon=https://raw.githubusercontent.com/LovedGM/Quantumult-X-TuBiao/main/md.png
-#!openUrl= https://IIlIIlIIIl.llIlI.lI
+#!openUrl= https://apps.apple.com/cn/app/id1472502819
 
 [Script]
 http-response ^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Task/ks_client_salt.js, requires-body=true, timeout=15, tag=KS Salt Capture
