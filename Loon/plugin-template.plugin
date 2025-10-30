@@ -1,0 +1,24 @@
+/*
+name: 插件模板（Loon）
+version: 0.1.0
+author: XiaoGe-LiBai
+description: Loon 插件模板。示例展示如何调用 Task 下暴露到 globalThis 的共享函数。
+*/
+
+(async function() {
+  const meta = {
+    name: "插件模板（Loon）",
+    version: "0.1.0"
+  };
+
+  try {
+    if (typeof globalThis.exampleTaskRun === "function") {
+      const res = await globalThis.exampleTaskRun({ source: "Loon/plugin-template" });
+      console.log(`[${meta.name}] exampleTaskRun 返回:`, res);
+    } else {
+      console.log(`[${meta.name}] 未找到 globalThis.exampleTaskRun，请先加载 Task/example-task.js 或合并共享脚本。`);
+    }
+  } catch (err) {
+    console.error(`[${meta.name}] 执行出错:`, err);
+  }
+})();
