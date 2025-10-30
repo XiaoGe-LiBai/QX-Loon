@@ -1,56 +1,80 @@
 /**
  * Loon script-response-body
  * Match: ^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login
- * 仅保存：api_client_salt / user_id / user_name
+ * 保存：api_client_salt / user_id / user_name
+ * Keys:
+ *  - KS_API_CLIENT_SALT
+ *  - KS_USER_ID
+ *  - KS_USER_NAME
+ *  - KS_MIN_INFO (聚合)
  */
 (function () {
-  const raw = $response?.body || "";
-
-  function pickByRegex(body, key, group = 1) {
-    const m = new RegExp(key, "m").exec(body);
-    return m ? m[group] : null;
-  }
-
-  let salt = null, user_id = null, user_name = null, headurl = null;
-
-  // 优先 JSON 解析
   try {
-    const j = JSON.parse(raw);
-    salt = j["kuaishou.api_client_salt"] ?? null;
-    user_id = j?.user?.user_id ?? null;
-    user_name = j?.user?.user_name ?? null;
-    headurl = j?.user?.headurl ?? null;
-  } catch (_) {
-    // 回退：正则从原始文本提取
-    salt = pickByRegex(raw, "\"kuaishou\\.api_client_salt\"\\s*:\\s*\"([^\"]+)\"");
-    user_id = pickByRegex(raw, "\"user_id\"\\s*:\\s*(\\d+)");
-    user_name = pickByRegex(raw, "\"user_name\"\\s*:\\s*\"([^\"]*)\"");
-    headurl = pickByRegex(raw, "\"headurl\"\\s*:\\s*\"([^\"]+)\"");
+    const raw = $response?.body || "";
+
+    // 解析插件参数：saveUserInfo=on/off & notify=on/off
+    function parseArgs(s) {
+      const res = {};
+      if (!s) return res;
+      s.split("&").forEach(p => {
+        const i = p.indexOf("=");
+        const k = (i >= 0 ? p.slice(0, i) : p).trim();
+        const v = (i >= 0 ? p.slice(i + 1) : "").trim();
+        res[k] = decodeURIComponent(v || "");
+      });
+      return res;
+    }
+    const args = parseArgs(typeof $argument === "string" ? $argument : "");
+    const saveUserInfo = (args.saveUserInfo || "on").toLowerCase() === "on";
+    const notify = (args.notify || "on").toLowerCase() === "on";
+
+    function pickByRegex(body, key, group = 1) {
+      const m = new RegExp(key, "m").exec(body);
+      return m ? m[group] : null;
+    }
+
+    let salt = null, user_id = null, user_name = null;
+
+    // 优先 JSON 解析
+    try {
+      const j = JSON.parse(raw);
+      salt = j["kuaishou.api_client_salt"] ?? null;
+      user_id = j?.user?.user_id ?? null;
+      user_name = j?.user?.user_name ?? null;
+    } catch (_) {
+      // 回退：正则从原始文本提取
+      salt = pickByRegex(raw, "\"kuaishou\\.api_client_salt\"\\s*:\\s*\"([^\"]+)\"");
+      user_id = pickByRegex(raw, "\"user_id\"\\s*:\\s*(\\d+)");
+      user_name = pickByRegex(raw, "\"user_name\"\\s*:\\s*\"([^\"]*)\"");
+    }
+
+    // 写入持久化
+    if (salt != null) $persistentStore.write(String(salt), "KS_API_CLIENT_SALT");
+    if (saveUserInfo) {
+      if (user_id != null) $persistentStore.write(String(user_id), "KS_USER_ID");
+      if (user_name != null) $persistentStore.write(String(user_name), "KS_USER_NAME");
+    }
+    $persistentStore.write(
+      JSON.stringify({ api_client_salt: salt || null, user_id: user_id || null, user_name: user_name || null }),
+      "KS_MIN_INFO"
+    );
+
+    // 通知（仅在首次/变更时）
+    const prev = $persistentStore.read("KS_API_CLIENT_SALT");
+    if (notify) {
+      if (salt && String(prev) !== String(salt)) {
+        const title = "快手 salt 获取成功";
+        const sub = (user_name || user_id) ? `用户：${user_name || "-"} (${user_id || "-"})` : "用户信息：-";
+        $notification.post(title, sub, String(salt));
+      } else if (!salt) {
+        $notification.post("未找到 api_client_salt", "", "请确认已启用 MITM 与证书，且已触发登录接口");
+      }
+    }
+
+    // 不改动原响应
+    $done({ body: raw });
+  } catch (e) {
+    $notification.post("脚本运行异常", "", String(e && e.stack || e));
+    $done({});
   }
-
-  // 写入持久化（分别 + 汇总）
-  if (salt != null) $persistentStore.write(String(salt), "KS_API_CLIENT_SALT");
-  if (user_id != null) $persistentStore.write(String(user_id), "KS_USER_ID");
-  if (user_name != null) $persistentStore.write(String(user_name), "KS_USER_NAME");
-  $persistentStore.write(
-    JSON.stringify({ api_client_salt: salt || null, user_id: user_id || null, user_name: user_name || null }),
-    "KS_MIN_INFO"
-  );
-
-  // 通知（Loon 通知不渲染图片，头像仅作为可点链接）
-  const ok = salt != null;
-  const title = ok ? "快手信息获取成功" : "未找到 api_client_salt";
-  const sub = (user_name || user_id) ? `用户：${user_name || "-"} (${user_id || "-"})` : "";
-  const saltShow = salt ? (String(salt)) : "-";
-  const body = `salt: ${saltShow}`;
-  const opts = headurl ? { url: headurl } : undefined; // 点通知打开头像链接
-  try {
-    // Loon 的 $notification.post 第四参可传 url（部分版本支持）
-    $notification.post(title, sub, body, opts);
-  } catch (_) {
-    $notification.post(title, sub, body);
-  }
-
-  // 不改动原响应
-  $done({ body: raw });
 })();
