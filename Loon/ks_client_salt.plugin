@@ -6,7 +6,7 @@
 #!openUrl= https://apps.apple.com/cn/app/id1472502819
 
 [Script]
-http-response ^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Task/ks_client_salt.js, requires-body=true, timeout=15, tag=KS Salt Capture
+http-response ^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/ks_client_salt.js, requires-body=true, timeout=15, tag=KS Salt Capture
 
 [MITM]
 hostname = api3.ksapisrv.com
