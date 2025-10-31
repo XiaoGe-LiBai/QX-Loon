@@ -55,6 +55,7 @@
 
     if (salt != null) $persistentStore.write(String(salt), "KS_API_CLIENT_SALT");
     if (saveUserInfo) {
+      // 可选：保存账号基础信息，便于其他脚本复用或手动查看
       if (userId != null) $persistentStore.write(String(userId), "KS_USER_ID");
       if (userName != null) $persistentStore.write(String(userName), "KS_USER_NAME");
       if (headUrl != null) $persistentStore.write(String(headUrl), "KS_USER_HEADURL");
@@ -88,12 +89,14 @@
         let hasAttach = false;
 
         const clipboardPref = (args.clipboard || "on").toLowerCase();
+        // 允许时复制内容到剪贴板，方便直接粘贴使用
         if (clipboardPref !== "off") {
           attachPayload.clipboard = content;
           hasAttach = true;
         }
 
         const mediaUrl = args.mediaUrl || headUrl;
+        // 默认使用头像 URL，可通过参数覆盖
         if (mediaUrl) {
           attachPayload.mediaUrl = mediaUrl;
           hasAttach = true;
