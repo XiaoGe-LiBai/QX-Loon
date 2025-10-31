@@ -62,8 +62,8 @@
 
     $persistentStore.write(
       JSON.stringify({
-        user_name: userName ?? null,
-        user_id: userId ?? null,
+        // user_name: userName ?? null,
+        // user_id: userId ?? null,
         api_client_salt: salt ?? null,
         head_url: headUrl ?? null
       }),
