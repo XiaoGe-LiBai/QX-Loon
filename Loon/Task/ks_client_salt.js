@@ -78,8 +78,8 @@
           : "用户信息缺失";
 
         const contentLines = [
-          `user_name=${userName ?? "-"}`,
-          `user_id=${userId ?? "-"}`,
+          // `用户名=${userName ?? "-"}`,
+          // `用户ID=${userId ?? "-"}`,
           `api_client_salt=${salt ?? "-"}`
         ];
         const content = contentLines.join("\n");
