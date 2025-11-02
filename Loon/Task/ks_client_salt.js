@@ -81,7 +81,7 @@
         const contentLines = [
           // `用户名=${userName ?? "-"}`,
           // `用户ID=${userId ?? "-"}`,
-          `api_client_salt=${salt ?? "-"}`
+          `api_client_salt: ${salt ?? "-"}`
         ];
         const content = contentLines.join("\n");
 
