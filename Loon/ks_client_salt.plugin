@@ -10,7 +10,5 @@ http-response ^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login script-
 http-request ^https?:\/\/nebula\.kuaishou\.com\/rest\/n\/nebula\/activity\/earn\/overview\/tasks script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/ks_earn_cookie.js, timeout=10, tag=快手Cookie和UA
 
 
-
-
 [MITM]
 hostname = api3.ksapisrv.com, nebula.kuaishou.com
