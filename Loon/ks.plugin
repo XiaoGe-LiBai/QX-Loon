@@ -1,0 +1,14 @@
+#!name = 快手普通版数据抓取
+#!author = 菜狗
+#!desc = 抓取快手普通版的 salt、cookie 和 UA
+#!date = 2025-11-03
+#!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/ksjsb.png
+#!openUrl = https://apps.apple.com/cn/app/id440948110
+
+[Script]
+http-response ^https?:\/\/api3\.gifshow\.com\/rest\/n\/user\/login script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/ks_salt.js, requires-body=true, timeout=15, tag=快手普通版salt
+http-request ^https?:\/\/encourage\.kuaishou\.com\/rest\/wd\/encourage\/unionTask\/treasureBox\/info script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/ks_cookie.js, timeout=10, tag=快手普通版Cookie和UA
+
+[MITM]
+hostname = api3.gifshow.com, encourage.kuaishou.com
+
