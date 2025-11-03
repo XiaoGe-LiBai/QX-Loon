@@ -1,7 +1,7 @@
 #!name = 快手极速版数据抓取
 #!author = 菜狗
-#!desc = 抓取快手极速版的salt、cookie和ua
-#!date = 2025年10月31日
+#!desc = 抓取快手极速版的 salt、cookie 和 UA
+#!date = 2025-10-31
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/ksjsb.png
 #!openUrl = https://apps.apple.com/cn/app/id1472502819
 
