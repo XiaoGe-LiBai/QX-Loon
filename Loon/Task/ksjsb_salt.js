@@ -1,12 +1,18 @@
 /**
  * Loon script-response-body
- * Match: ^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login
- * Persist keys:
+ * 场景：快手极速版登录接口，提取 salt 与用户信息
+ * 匹配：^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login
+ * 可持久化的键：
  *  - KS_API_CLIENT_SALT
  *  - KS_USER_ID
  *  - KS_USER_NAME
  *  - KS_USER_HEADURL
- *  - KS_MIN_INFO (summary JSON)
+ *  - KS_MIN_INFO（概要信息 JSON）
+ * 参数说明（可选）：
+ *  - saveUserInfo=on/off：是否保存用户基础信息（默认 on）
+ *  - notify=on/off：salt 变化时是否通知（默认 on）
+ *  - clipboard=on/off：通知时是否复制内容到剪贴板（默认 on）
+ *  - mediaUrl/openUrl/delayMs：透传给 $notification.post
  */
 (function () {
   try {

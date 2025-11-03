@@ -1,12 +1,13 @@
 /**
  * Loon http-request script
- * 监听快手极速版任务中心任务页接口，自动聚合 Cookie 与 User-Agent 并保存
- *
- * 插件参数（可选）：
- *   - storeKey: 自定义持久化键名，默认 KS_EARN_COOKIE
- *   - notify: on/off，是否通知（默认 on，仅 Cookie 变化时提醒）
- *   - clipboard: on/off，是否复制到剪贴板（默认 on，会同时包含 Cookie 与 User-Agent）
- *   - openUrl / mediaUrl / delayMs：同 Loon $notification.attach 参数
+ * 场景：快手极速版任务接口，请求头包含拆分 Cookie 字段
+ * 匹配：^https?:\/\/nebula\.kuaishou\.com\/rest\/n\/nebula\/activity\/earn\/overview\/tasks
+ * 功能：聚合 Cookie 与 User-Agent 并持久化，必要时发送通知
+ * 参数说明（可选）：
+ *  - storeKey：自定义持久化键名，默认 KS_EARN_COOKIE
+ *  - notify=on/off：Cookie 变化时是否通知（默认 on，仅变更时提醒）
+ *  - clipboard=on/off：通知时是否复制 Cookie+UA（默认 on）
+ *  - openUrl / mediaUrl / delayMs：透传给通知参数
  */
 (function () {
   try {
