@@ -99,18 +99,6 @@ QX-Loon/
 - 确保代码经过测试且功能正常
 - 遵循项目的代码风格和规范
 
-### 🎯 贡献者
-
-感谢所有为项目做出贡献的开发者！
-
-<a href="https://github.com/XiaoGe-LiBai/QX-Loon/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=XiaoGe-LiBai/QX-Loon" />
-</a>
-
-## 📄 开源协议
-
-本项目基于 [MIT License](LICENSE) 开源协议，您可以自由使用、修改和分发。
-
 ## 🙏 致谢
 
 - 感谢 [Loon](https://github.com/Loon0x00/Loon) 和 [Quantumult X](https://github.com/crossutility/QuantumultX) 提供的强大平台
@@ -122,7 +110,5 @@ QX-Loon/
 <div align="center">
 
 **⭐ 如果这个项目对您有帮助，请给我们一个 Star！**
-
-[🔝 回到顶部](#-loonqx-脚本插件仓库) • [📧 联系作者](mailto:your-email@example.com) • [🐛 报告问题](https://github.com/XiaoGe-LiBai/QX-Loon/issues)
 
 </div>
