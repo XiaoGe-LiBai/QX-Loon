@@ -65,8 +65,6 @@ QX-Loon/
 │   └── 📄 qx-template.js
 ├── 📂 Photos/                  # 插件图标等资源
 ├── 📄 README.md                # 项目说明文档
-├── 📄 LICENSE                  # 开源协议
-├── 📄 .gitignore              # Git 忽略文件
 └── 📄 CONTRIBUTING.md          # 贡献指南
 ```
 
