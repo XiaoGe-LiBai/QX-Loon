@@ -1,7 +1,8 @@
 ﻿/*
 达美乐微信小程序 Authorization 抓取脚本（适用于 Loon）
-触发条件：拦截 https://game.dominos.com.cn/.../getUser 请求
+触发条件：拦截 https://game.dominos.com.cn/grandly/v2/getUser 请求
 通知：点击可复制 Token（可通过参数控制）
+输出格式：,dlm set token#备注
 */
 (function () {
   try {
