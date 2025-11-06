@@ -11,7 +11,7 @@
 ### 📱 快手数据抓取
 - **快手极速版**: salt、cookie、UA、kaw 参数
 - **快手普通版**: salt、cookie、UA、kaw 参数
-- **输出格式**: `ksjsb salt=值` / `ks salt=值`
+- **输出格式**: `快手极速版salt: 值` / `快手普通版salt: 值`
 
 ### 🍕 达美乐Token抓取
 - **达美乐微信小程序**: Authorization Token
@@ -54,16 +54,16 @@ https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/dlm_token.plugi
 所有参数输出到 Loon 控制台日志：
 ```
 # 快手极速版
-ksjsb salt=api_client_salt值
-ksjsb cookie=完整cookie字符串
-ksjsb ua=User-Agent字符串
-ksjsb kaw=kaw参数值
+快手极速版salt: api_client_salt值
+快手极速版cookie: 完整cookie字符串
+快手极速版ua: User-Agent字符串
+快手极速版kaw: kaw参数值
 
 # 快手普通版
-ks salt=api_client_salt值
-ks cookie=完整cookie字符串
-ks ua=User-Agent字符串
-ks kaw=kaw参数值
+快手普通版salt: api_client_salt值
+快手普通版cookie: 完整cookie字符串
+快手普通版ua: User-Agent字符串
+快手普通版kaw: kaw参数值
 
 # 达美乐
 ,dlm set token值#备注信息
@@ -85,7 +85,7 @@ QX-Loon/
 
 ## 🔧 特点
 - ✅ **无持久化存储**: 仅输出到控制台，不占用存储空间
-- ✅ **统一格式**: 所有参数采用 `key=value` 格式输出
+- ✅ **统一格式**: 所有参数采用 `应用名称参数: 值` 格式输出
 - ✅ **轻量化**: 专注核心功能，脚本简洁高效
 - ✅ **易调试**: 控制台日志便于查看和复制
 
