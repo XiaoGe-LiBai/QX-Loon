@@ -53,7 +53,7 @@
       let hasAttach = false;
 
       if (clipboard) {
-        attachPayload.clipboard = output;
+        attachPayload.clipboard = `${output}\n快手极速版ua: ${userAgent}`;
         hasAttach = true;
       }
 
