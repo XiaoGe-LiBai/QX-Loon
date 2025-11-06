@@ -2,15 +2,10 @@
  * Loon script-response-body
  * 场景：快手极速版登录接口，提取 salt 与用户信息
  * 匹配：^https?:\/\/api3\.ksapisrv\.com\/rest\/nebula\/user\/login
- * 可持久化的键：
- *  - KS_API_CLIENT_SALT
- *  - KS_USER_ID
- *  - KS_USER_NAME
- *  - KS_USER_HEADURL
- *  - KS_MIN_INFO（概要信息 JSON）
+ * 功能：提取并输出 api_client_salt 和用户信息，不进行持久化存储
+ * 输出格式：ksjsb salt=参数值
  * 参数说明（可选）：
- *  - saveUserInfo=on/off：是否保存用户基础信息（默认 on）
- *  - notify=on/off：salt 变化时是否通知（默认 on）
+ *  - notify=on/off：是否发送通知（默认 on）
  *  - clipboard=on/off：通知时是否复制内容到剪贴板（默认 on）
  *  - mediaUrl/openUrl/delayMs：透传给 $notification.post
  */
@@ -31,7 +26,6 @@
     }
 
     const args = parseArgs(typeof $argument === "string" ? $argument : "");
-    const saveUserInfo = (args.saveUserInfo || "on").toLowerCase() === "on";
     const notify = (args.notify || "on").toLowerCase() === "on";
 
     function pickByRegex(body, pattern, group = 1) {
@@ -57,36 +51,18 @@
       headUrl = pickByRegex(raw, "\"headurl\"\\s*:\\s*\"([^\"]+)\"");
     }
 
-    const prevSalt = $persistentStore.read("KS_API_CLIENT_SALT");
-
-    if (salt != null) $persistentStore.write(String(salt), "KS_API_CLIENT_SALT");
-    if (saveUserInfo) {
-      // 可选：保存账号基础信息，便于其他脚本复用或手动查看
-      if (userId != null) $persistentStore.write(String(userId), "KS_USER_ID");
-      if (userName != null) $persistentStore.write(String(userName), "KS_USER_NAME");
-      if (headUrl != null) $persistentStore.write(String(headUrl), "KS_USER_HEADURL");
-    }
-
-    $persistentStore.write(
-      JSON.stringify({
-        // user_name: userName ?? null,
-        // user_id: userId ?? null,
-        api_client_salt: salt ?? null,
-        head_url: headUrl ?? null
-      }),
-      "KS_MIN_INFO"
-    );
+    // 输出格式：ksjsb salt=参数值
+    const output = `ksjsb salt=${salt ?? ""}`;
+    console.log(output);
 
     if (notify) {
-      if (salt && String(prevSalt) !== String(salt)) {
-        const title = "快手 salt 获取成功";
+      if (salt) {
+        const title = "快手极速版 salt 获取成功";
         const subtitle = (userName || userId)
           ? `用户: ${userName || "-"} (${userId || "-"})`
           : "用户信息缺失";
 
         const contentLines = [
-          // `用户名=${userName ?? "-"}`,
-          // `用户ID=${userId ?? "-"}`,
           `api_client_salt=${salt ?? "-"}`
         ];
         const content = contentLines.join("\n");
@@ -97,7 +73,7 @@
         const clipboardPref = (args.clipboard || "on").toLowerCase();
         // 允许时复制内容到剪贴板，方便直接粘贴使用
         if (clipboardPref !== "off") {
-          attachPayload.clipboard = content;
+          attachPayload.clipboard = output;
           hasAttach = true;
         }
 
@@ -123,8 +99,8 @@
           hasAttach ? attachPayload : undefined,
           delayMs > 0 ? delayMs : 0
         );
-      } else if (!salt) {
-        $notification.post("未找到 api_client_salt", "", "请确认已启用 MITM 与证书，且已触发登录接口");
+      } else {
+        $notification.post("快手极速版 salt 获取失败", "", "请确认已启用 MITM 与证书，且已触发登录接口");
       }
     }
 
