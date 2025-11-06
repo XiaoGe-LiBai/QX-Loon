@@ -28,7 +28,7 @@
       $notification.post(
         '快手普通版 kaw 参数',
         'kaw 参数捕获成功',
-        `长度: ${kawValue.length} 字符`,
+        `快手普通版kaw: ${kawValue}`,
         {
           clipboard: `快手普通版kaw: ${kawValue}`
         }
