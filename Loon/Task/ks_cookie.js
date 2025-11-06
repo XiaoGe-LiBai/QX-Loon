@@ -39,10 +39,10 @@
 
     const userAgent = readHeader(headers, "user-agent") || "";
 
-    // 输出格式：ks cookie=cookie值
-    const output = `ks cookie=${cookieString}`;
+    // 输出格式：快手普通版cookie: cookie值
+    const output = `快手普通版cookie: ${cookieString}`;
     console.log(output);
-    console.log(`ks ua=${userAgent}`);
+    console.log(`快手普通版ua: ${userAgent}`);
 
     if (notify) {
       const title = "快手普通版 Cookie 已更新";

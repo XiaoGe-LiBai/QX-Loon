@@ -51,8 +51,8 @@
       headUrl = pickByRegex(raw, "\"headurl\"\\s*:\\s*\"([^\"]+)\"");
     }
 
-    // 输出格式：ks salt=参数值
-    const output = `ks salt=${salt ?? ""}`;
+    // 输出格式：快手普通版salt: 参数值
+    const output = `快手普通版salt: ${salt ?? ""}`;
     console.log(output);
 
     if (notify) {

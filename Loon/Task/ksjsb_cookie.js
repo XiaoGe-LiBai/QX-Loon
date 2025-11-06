@@ -39,10 +39,10 @@
 
     const userAgent = readHeader(headers, "user-agent") || "";
 
-    // 输出格式：ksjsb cookie=cookie值
-    const output = `ksjsb cookie=${cookieString}`;
+    // 输出格式：快手极速版cookie: cookie值
+    const output = `快手极速版cookie: ${cookieString}`;
     console.log(output);
-    console.log(`ksjsb ua=${userAgent}`);
+    console.log(`快手极速版ua: ${userAgent}`);
 
     if (notify) {
       const title = "快手极速版 Cookie 已更新";
