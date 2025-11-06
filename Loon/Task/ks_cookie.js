@@ -2,10 +2,10 @@
  * Loon http-request script
  * 场景：快手普通版任务接口，请求头包含拆分 Cookie 字段
  * 匹配：^https?:\/\/encourage\.kuaishou\.com\/rest\/wd\/encourage\/unionTask\/treasureBox\/info
- * 功能：聚合 Cookie 与 User-Agent 并持久化，必要时发送通知
+ * 功能：聚合 Cookie 与 User-Agent 并输出，不进行持久化存储
+ * 输出格式：ks cookie=cookie值
  * 参数说明（可选）：
- *  - storeKey：自定义持久化键名，默认 KS_MAIN_COOKIE
- *  - notify=on/off：Cookie 变化时是否通知（默认 on）
+ *  - notify=on/off：是否发送通知（默认 on）
  *  - clipboard=on/off：通知时是否复制 Cookie+UA（默认 on）
  *  - openUrl / mediaUrl / delayMs：透传给通知参数
  */
@@ -18,7 +18,6 @@
     const headers = $request.headers || {};
     const args = parseArgs(typeof $argument === "string" ? $argument : "");
 
-    const storeKey = args.storeKey || "KS_MAIN_COOKIE";
     const notify = (args.notify || "on").toLowerCase() === "on";
     const clipboard = (args.clipboard || "on").toLowerCase() !== "off";
 
@@ -40,22 +39,12 @@
 
     const userAgent = readHeader(headers, "user-agent") || "";
 
-    const prevCookie = $persistentStore.read(storeKey) || "";
-    $persistentStore.write(cookieString, storeKey);
-    if (userAgent) {
-      $persistentStore.write(String(userAgent), `${storeKey}_UA`);
-    }
-    $persistentStore.write(
-      JSON.stringify({
-        cookie: cookieString,
-        user_agent: userAgent || null,
-        updated_at: new Date().toISOString(),
-        url: $request.url || ""
-      }),
-      `${storeKey}_META`
-    );
+    // 输出格式：ks cookie=cookie值
+    const output = `ks cookie=${cookieString}`;
+    console.log(output);
+    console.log(`ks ua=${userAgent}`);
 
-    if (notify && String(prevCookie) !== String(cookieString)) {
+    if (notify) {
       const title = "快手普通版 Cookie 已更新";
       const subtitle = "任务接口请求捕获成功";
       const preview = cookieString.length > 96 ? `${cookieString.slice(0, 96)}…` : cookieString;
@@ -64,7 +53,7 @@
       let hasAttach = false;
 
       if (clipboard) {
-        attachPayload.clipboard = buildClipboardContent(cookieString, userAgent);
+        attachPayload.clipboard = output;
         hasAttach = true;
       }
 
