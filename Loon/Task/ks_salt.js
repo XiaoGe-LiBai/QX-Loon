@@ -2,15 +2,10 @@
  * Loon script-response-body
  * 场景：快手普通版登录接口，提取 salt 与用户信息
  * 匹配：^https?:\/\/api3\.gifshow\.com\/rest\/n\/user\/login
- * 可持久化的键：
- *  - KS_MAIN_API_CLIENT_SALT
- *  - KS_MAIN_USER_ID
- *  - KS_MAIN_USER_NAME
- *  - KS_MAIN_USER_HEADURL
- *  - KS_MAIN_MIN_INFO（概要信息 JSON）
+ * 功能：提取并输出 api_client_salt 和用户信息，不进行持久化存储
+ * 输出格式：ks salt=参数值
  * 参数说明（可选）：
- *  - saveUserInfo=on/off：是否保存用户基础信息（默认 on）
- *  - notify=on/off：salt 变更时是否通知（默认 on）
+ *  - notify=on/off：是否发送通知（默认 on）
  *  - clipboard=on/off：通知时是否复制内容到剪贴板（默认 on）
  *  - mediaUrl/openUrl/delayMs：透传给 $notification.post
  */
@@ -31,7 +26,6 @@
     }
 
     const args = parseArgs(typeof $argument === "string" ? $argument : "");
-    const saveUserInfo = (args.saveUserInfo || "on").toLowerCase() === "on";
     const notify = (args.notify || "on").toLowerCase() === "on";
 
     function pickByRegex(body, pattern, group = 1) {
@@ -57,25 +51,12 @@
       headUrl = pickByRegex(raw, "\"headurl\"\\s*:\\s*\"([^\"]+)\"");
     }
 
-    const prevSalt = $persistentStore.read("KS_MAIN_API_CLIENT_SALT");
-
-    if (salt != null) $persistentStore.write(String(salt), "KS_MAIN_API_CLIENT_SALT");
-    if (saveUserInfo) {
-      if (userId != null) $persistentStore.write(String(userId), "KS_MAIN_USER_ID");
-      if (userName != null) $persistentStore.write(String(userName), "KS_MAIN_USER_NAME");
-      if (headUrl != null) $persistentStore.write(String(headUrl), "KS_MAIN_USER_HEADURL");
-    }
-
-    $persistentStore.write(
-      JSON.stringify({
-        api_client_salt: salt ?? null,
-        head_url: headUrl ?? null
-      }),
-      "KS_MAIN_MIN_INFO"
-    );
+    // 输出格式：ks salt=参数值
+    const output = `ks salt=${salt ?? ""}`;
+    console.log(output);
 
     if (notify) {
-      if (salt && String(prevSalt) !== String(salt)) {
+      if (salt) {
         const title = "快手普通版 salt 获取成功";
         const subtitle = (userName || userId)
           ? `用户：${userName || "-"}（${userId || "-"}）`
@@ -88,7 +69,7 @@
 
         const clipboardPref = (args.clipboard || "on").toLowerCase();
         if (clipboardPref !== "off") {
-          attachPayload.clipboard = content;
+          attachPayload.clipboard = output;
           hasAttach = true;
         }
 
@@ -113,7 +94,7 @@
           hasAttach ? attachPayload : undefined,
           delayMs > 0 ? delayMs : 0
         );
-      } else if (!salt) {
+      } else {
         $notification.post("快手普通版 salt 获取失败", "", "未在响应体中找到 api_client_salt，请确认已开启 MITM 并重新触发登录接口");
       }
     }
