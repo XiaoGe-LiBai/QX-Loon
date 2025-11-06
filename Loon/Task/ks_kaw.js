@@ -1,7 +1,7 @@
 /*
 快手普通版 kaw 参数抓取脚本（适用于 Loon）
 触发条件：拦截 https://az4-api.ksapisrv.com/rest/n/emotion/package/list/v2 请求
-功能：从请求头中提取 kaw 参数值并输出（kaw 参数位于请求头中）
+功能：从请求头中提取 kaw 参数值并输出
 输出格式: 快手普通版kaw: 参数值
 */
 (function () {
@@ -28,7 +28,7 @@
       $notification.post(
         '快手普通版 kaw 参数',
         'kaw 参数捕获成功',
-        `快手普通版kaw: ${kawValue}`,
+        `长度: ${kawValue.length} 字符`,
         {
           clipboard: `快手普通版kaw: ${kawValue}`
         }
