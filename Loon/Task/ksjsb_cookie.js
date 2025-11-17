@@ -40,10 +40,11 @@
     // 输出格式：快手极速版cookie: cookie值
     const output = `快手极速版cookie: ${cookieString}`;
     console.log(output);
+    console.log("📋 提示：点击弹窗通知即可自动复制完整内容到剪贴板");
 
     if (notify) {
       const title = "快手极速版 Cookie 已更新";
-      const subtitle = "任务中心请求已捕获";
+      const subtitle = "👆 点击此通知自动复制";
       const preview = cookieString.length > 96 ? `${cookieString.slice(0, 96)}…` : cookieString;
 
       const attachPayload = {};
