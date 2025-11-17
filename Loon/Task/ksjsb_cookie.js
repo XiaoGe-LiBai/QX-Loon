@@ -42,8 +42,17 @@
     console.log(output);
     console.log("📋 提示：点击弹窗通知即可自动复制完整内容到剪贴板");
 
-    if (notify) {
-      const title = "快手极速版 Cookie 已更新";
+    // 通知防抖：10秒内重复触发不通知
+    const now = Date.now();
+    const lastNotifyKey = "ksjsb_cookie_last_notify";
+    const lastNotifyTime = parseInt($persistentStore.read(lastNotifyKey) || "0");
+    const cooldownMs = 10000; // 10秒冷却时间
+    const shouldNotify = notify && (now - lastNotifyTime >= cooldownMs);
+
+    if (shouldNotify) {
+      $persistentStore.write(String(now), lastNotifyKey);
+
+      const title = "快手极速版 Cookie 已抓取";
       const subtitle = "👆 点击此通知自动复制";
       const preview = cookieString.length > 96 ? `${cookieString.slice(0, 96)}…` : cookieString;
 
@@ -75,6 +84,8 @@
         hasAttach ? attachPayload : undefined,
         delayMs > 0 ? delayMs : 0
       );
+    } else if (notify) {
+      console.log("⏱️ 通知已被限流（10秒内重复触发），完整内容已输出到控制台");
     }
 
     $done({});

@@ -36,10 +36,20 @@
     // 输出格式：快手普通版kaw: 参数值
     const output = `快手普通版kaw: ${kawValue}`;
     console.log(output);
+    console.log("📋 提示：点击弹窗通知即可自动复制完整内容到剪贴板");
 
-    if (notify) {
-      const title = "快手普通版 kaw 参数已更新";
-      const subtitle = "表情包接口请求捕获成功";
+    // 通知防抖：10秒内重复触发不通知
+    const now = Date.now();
+    const lastNotifyKey = "ks_kaw_last_notify";
+    const lastNotifyTime = parseInt($persistentStore.read(lastNotifyKey) || "0");
+    const cooldownMs = 10000; // 10秒冷却时间
+    const shouldNotify = notify && (now - lastNotifyTime >= cooldownMs);
+
+    if (shouldNotify) {
+      $persistentStore.write(String(now), lastNotifyKey);
+
+      const title = "快手普通版 kaw 参数已抓取";
+      const subtitle = "👆 点击此通知自动复制";
       const preview = kawValue.length > 96 ? `${kawValue.slice(0, 96)}…` : kawValue;
 
       const attachPayload = {};
@@ -70,6 +80,8 @@
         hasAttach ? attachPayload : undefined,
         delayMs > 0 ? delayMs : 0
       );
+    } else if (notify) {
+      console.log("⏱️ 通知已被限流（10秒内重复触发），完整内容已输出到控制台");
     }
 
     $done({});

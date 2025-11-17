@@ -54,18 +54,17 @@
     // 输出格式：快手极速版salt: 参数值
     const output = `快手极速版salt: ${salt ?? ""}`;
     console.log(output);
+    console.log("📋 提示：点击弹窗通知即可自动复制完整内容到剪贴板");
 
     if (notify) {
       if (salt) {
-        const title = "快手极速版 salt 获取成功";
-        const subtitle = (userName || userId)
+        const title = "快手极速版 salt 已抓取";
+        const subtitle = "👆 点击此通知自动复制";
+
+        const userInfo = (userName || userId)
           ? `用户: ${userName || "-"} (${userId || "-"})`
           : "用户信息缺失";
-
-        const contentLines = [
-          `api_client_salt=${salt ?? "-"}`
-        ];
-        const content = contentLines.join("\n");
+        const content = userInfo;
 
         const attachPayload = {};
         let hasAttach = false;
