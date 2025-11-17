@@ -2,11 +2,11 @@
  * Loon http-request script
  * 场景：快手极速版任务接口，请求头包含拆分 Cookie 字段
  * 匹配：^https?:\/\/nebula\.kuaishou\.com\/rest\/n\/nebula\/activity\/earn\/overview\/tasks
- * 功能：聚合 Cookie 与 User-Agent 并输出，不进行持久化存储
+ * 功能：聚合 Cookie 并输出，不进行持久化存储
  * 输出格式：ksjsb cookie=cookie值
  * 参数说明（可选）：
  *  - notify=on/off：是否发送通知（默认 on）
- *  - clipboard=on/off：通知时是否复制 Cookie+UA（默认 on）
+ *  - clipboard=on/off：通知时是否复制 Cookie（默认 on）
  *  - openUrl / mediaUrl / delayMs：透传给通知参数
  */
 (function () {
@@ -37,12 +37,9 @@
       return $done({});
     }
 
-    const userAgent = readHeader(headers, "user-agent") || "";
-
     // 输出格式：快手极速版cookie: cookie值
     const output = `快手极速版cookie: ${cookieString}`;
     console.log(output);
-    console.log(`快手极速版ua: ${userAgent}`);
 
     if (notify) {
       const title = "快手极速版 Cookie 已更新";
@@ -53,7 +50,7 @@
       let hasAttach = false;
 
       if (clipboard) {
-        attachPayload.clipboard = `${output}\n快手极速版ua: ${userAgent}`;
+        attachPayload.clipboard = output;
         hasAttach = true;
       }
 
@@ -189,23 +186,3 @@ function formatCookieString(values) {
   return result.join("; ");
 }
 
-function readHeader(headers, target) {
-  if (!headers || !target) return null;
-  const wanted = target.toLowerCase();
-  for (const key of Object.keys(headers)) {
-    if ((key || "").toLowerCase() === wanted) {
-      const value = headers[key];
-      if (Array.isArray(value)) {
-        return value.length > 0 ? String(value[0]) : null;
-      }
-      return value != null ? String(value) : null;
-    }
-  }
-  return null;
-}
-
-function buildClipboardContent(cookieString, userAgent) {
-  if (!cookieString) return "";
-  if (!userAgent) return cookieString;
-  return `Cookie: ${cookieString}\nUser-Agent: ${userAgent}`;
-}
