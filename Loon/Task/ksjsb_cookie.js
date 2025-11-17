@@ -158,8 +158,28 @@ function formatCookieString(values) {
     }
   });
 
-  const result = [];
+  // 定义优先级参数列表，这些参数会排在前面
+  const priorityKeys = ["__NSWJ"];
+
+  // 将键按优先级排序
+  const sortedKeys = [];
+
+  // 首先添加优先级参数（按定义顺序）
+  priorityKeys.forEach(priorityKey => {
+    if (orderedKeys.includes(priorityKey)) {
+      sortedKeys.push(priorityKey);
+    }
+  });
+
+  // 然后添加其他参数（保持原有顺序）
   orderedKeys.forEach(key => {
+    if (!priorityKeys.includes(key)) {
+      sortedKeys.push(key);
+    }
+  });
+
+  const result = [];
+  sortedKeys.forEach(key => {
     result.push(`${key}=${kv[key]}`);
   });
   flagItems.forEach(item => {
