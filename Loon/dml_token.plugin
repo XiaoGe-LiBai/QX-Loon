@@ -3,7 +3,7 @@
 #!author = XiaoGe-LiBai
 #!date = 2025-11-03
 [Script]
-http-request ^https:\/\/game\.dominos\.com\.cn\/sicily\/v2\/getUser script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/dml_token.js, timeout=10, tag=微信小程序-达美乐Token
+http-request ^https:\/\/game\.dominos\.com\.cn\/\w+\/v2\/getUser script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/dml_token.js, timeout=10, tag=微信小程序-达美乐Token
 
 [MITM]
 hostname = game.dominos.com.cn
