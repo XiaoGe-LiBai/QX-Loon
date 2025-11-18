@@ -28,7 +28,7 @@ https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/ksjsb.plugin
 https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/ks.plugin
 
 # 达美乐Token
-https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/dlm_token.plugin
+https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/dml_token.plugin
 ```
 
 ### 2. 配置 MITM
