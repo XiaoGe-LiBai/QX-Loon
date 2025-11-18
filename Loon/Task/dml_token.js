@@ -1,6 +1,6 @@
 ﻿/*
 达美乐微信小程序 Authorization 抓取脚本（适用于 Loon）
-触发条件：拦截 https://game.dominos.com.cn/grandly/v2/getUser 请求
+触发条件：拦截 https://game.dominos.com.cn/{活动名}/v2/getUser 请求（支持所有活动）
 通知：点击可复制 Token（可通过参数控制）
 输出格式：,dlm set token#备注
 */
@@ -48,6 +48,7 @@
 
     // 输出到控制台/日志
     console.log(output);
+    console.log('📋 提示：点击弹窗通知即可自动复制完整内容到剪贴板');
 
     if (notify) {
       const attachPayload = {};
@@ -71,8 +72,8 @@
       const delayMs = Number.isFinite(delayValue) ? delayValue : 0;
 
       $notification.post(
-        '微信小程序-达美乐Token',
-        'Authorization 捕获成功',
+        '达美乐 Token 已抓取',
+        '👆 点击此通知自动复制',
         `格式: ${output}`,
         hasAttach ? attachPayload : undefined,
         delayMs > 0 ? delayMs : 0
