@@ -1,0 +1,10 @@
+#!name = 爱奇艺尖叫之夜秒杀按钮点亮
+#!desc = 修改商品库存状态，点亮售罄的抢购按钮
+#!author = XiaoGe-LiBai
+#!date = 2025-11-20
+
+[Script]
+http-response ^https:\/\/act\.vip\.iqiyi\.com\/supermk\/seckill\/query\/activity\/timesList script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/iqiyi_seckill.js, requires-body=true, timeout=10, tag=爱奇艺秒杀按钮点亮
+
+[MITM]
+hostname = act.vip.iqiyi.com
