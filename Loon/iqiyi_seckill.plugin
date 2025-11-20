@@ -1,5 +1,5 @@
 #!name = 爱奇艺尖叫之夜秒杀
-#!desc = 修改商品库存状态点亮按钮 + 自动抢购
+#!desc = 修改商品库存状态点亮按钮（定时任务需手动配置）
 #!author = XiaoGe-LiBai
 #!date = 2025-11-20
 
@@ -7,8 +7,8 @@
 # 响应拦截：点亮按钮 + 保存 Cookie
 http-response ^https:\/\/act\.vip\.iqiyi\.com\/supermk\/seckill\/query\/activity\/timesList script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/iqiyi_seckill.js, requires-body=true, timeout=10, tag=爱奇艺秒杀按钮点亮
 
-# 定时任务：11.22 11:59:58 自动抢购（提前2秒发送请求）
-cron "58 59 11 22 11 *" script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/iqiyi_auto_buy.js, timeout=30, tag=爱奇艺自动抢购
+# 注意：定时任务请手动添加到 Loon 的「配置」→「脚本」中
+# 配置方法见：https://github.com/XiaoGe-LiBai/QX-Loon/tree/main/爱奇艺尖叫之夜/使用说明.md
 
 [MITM]
 hostname = act.vip.iqiyi.com
