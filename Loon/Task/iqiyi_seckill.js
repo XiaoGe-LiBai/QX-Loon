@@ -1,11 +1,11 @@
 /*
 爱奇艺尖叫之夜秒杀按钮点亮脚本（适用于 Loon）
 触发条件：拦截 https://act.vip.iqiyi.com/supermk/seckill/query/activity/timesList 响应
-功能：修改商品剩余库存和活动时间，点亮抢购按钮，抓取 Cookie
+功能：修改商品剩余库存和活动时间，点亮抢购按钮，输出 Cookie
 参数说明（可选）：
  - stock=数量：设置模拟库存数量（默认 100）
  - extendHours=小时：延长活动结束时间（默认 48 小时）
- - notify=on/off：是否通知（默认 off，静默工作）
+ - notify=on/off：是否通知（默认 on，推荐开启）
  - clipboard=on/off：是否复制 Cookie（默认 on）
 */
 (function () {
@@ -20,7 +20,7 @@
     const args = parseArgs(typeof $argument === "string" ? $argument : "");
     const stockValue = parseInt(args.stock || "100") || 1;
     const extendHours = parseInt(args.extendHours || "48") || 48;
-    const notify = (args.notify || "off").toLowerCase() === "on";
+    const notify = (args.notify || "on").toLowerCase() !== "off";  // 默认开启通知
     const clipboard = (args.clipboard || "on").toLowerCase() !== "off";
 
     let data;
@@ -92,18 +92,22 @@
     }
 
     // 控制台输出
+    console.log("=========================================");
     if (modifications.length > 0) {
-      console.log(`爱奇艺秒杀：按钮点亮成功 - ${modifications.join("，")}`);
+      console.log(`爱奇艺秒杀：✅ 按钮已点亮 - ${modifications.join("，")}`);
     } else {
       console.log("爱奇艺秒杀：数据正常，无需修改");
     }
 
     if (cookieString) {
-      console.log(`爱奇艺秒杀 Cookie: ${cookieString}`);
-      console.log("📋 提示：点击弹窗通知即可自动复制完整 Cookie 到剪贴板");
+      console.log("=========================================");
+      console.log("📋 Cookie 已抓取（点击通知可自动复制）");
+      console.log("=========================================");
+      console.log(cookieString);
+      console.log("=========================================");
     }
 
-    // 可选通知（默认不通知，静默工作）
+    // 通知（默认开启）
     if (notify && cookieString) {
       const attachPayload = {};
       if (clipboard) {
@@ -111,9 +115,9 @@
       }
 
       $notification.post(
-        "爱奇艺秒杀 Cookie 已抓取",
-        "👆 点击此通知自动复制",
-        `已修改：${modifications.join("，")}`,
+        "爱奇艺秒杀",
+        "👆 点击此通知复制 Cookie",
+        modifications.length > 0 ? `✅ ${modifications.join("，")}` : "Cookie 已抓取",
         clipboard ? attachPayload : undefined
       );
     }
