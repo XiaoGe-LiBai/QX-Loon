@@ -1,10 +1,12 @@
 /*
 爱奇艺尖叫之夜秒杀按钮点亮脚本（适用于 Loon）
 触发条件：拦截 https://act.vip.iqiyi.com/supermk/seckill/query/activity/timesList 响应
-功能：修改商品剩余库存和活动时间，点亮抢购按钮
+功能：修改商品剩余库存和活动时间，点亮抢购按钮，抓取 Cookie
 参数说明（可选）：
- - stock=数量：设置模拟库存数量（默认 1）
+ - stock=数量：设置模拟库存数量（默认 100）
  - extendHours=小时：延长活动结束时间（默认 48 小时）
+ - notify=on/off：是否通知（默认 off，静默工作）
+ - clipboard=on/off：是否复制 Cookie（默认 on）
 */
 (function () {
   try {
@@ -18,6 +20,8 @@
     const args = parseArgs(typeof $argument === "string" ? $argument : "");
     const stockValue = parseInt(args.stock || "100") || 1;
     const extendHours = parseInt(args.extendHours || "48") || 48;
+    const notify = (args.notify || "off").toLowerCase() === "on";
+    const clipboard = (args.clipboard || "on").toLowerCase() !== "off";
 
     let data;
     try {
@@ -64,15 +68,36 @@
       modifications.push(`${stockModifiedCount} 个商品库存已修改`);
     }
 
+    // 提取 Cookie
+    const headers = $request?.headers || {};
+    const cookies = extractCookies(headers);
+    const cookieString = cookies.join("; ");
+
+    // 控制台输出
     if (modifications.length > 0) {
-      console.log(`爱奇艺秒杀：按钮点亮成功`);
-      $notification.post(
-        "爱奇艺秒杀按钮已点亮",
-        modifications.join("，"),
-        "现在可以看到抢购按钮了，活动开始时即可点击"
-      );
+      console.log(`爱奇艺秒杀：按钮点亮成功 - ${modifications.join("，")}`);
     } else {
       console.log("爱奇艺秒杀：数据正常，无需修改");
+    }
+
+    if (cookieString) {
+      console.log(`爱奇艺秒杀 Cookie: ${cookieString}`);
+      console.log("📋 提示：点击弹窗通知即可自动复制完整 Cookie 到剪贴板");
+    }
+
+    // 可选通知（默认不通知，静默工作）
+    if (notify && cookieString) {
+      const attachPayload = {};
+      if (clipboard) {
+        attachPayload.clipboard = cookieString;
+      }
+
+      $notification.post(
+        "爱奇艺秒杀 Cookie 已抓取",
+        "👆 点击此通知自动复制",
+        `已修改：${modifications.join("，")}`,
+        clipboard ? attachPayload : undefined
+      );
     }
 
     $done({ body: JSON.stringify(data) });
@@ -92,4 +117,24 @@ function parseArgs(str) {
     acc[key] = decodeURIComponent(val || "");
     return acc;
   }, {});
+}
+
+function extractCookies(headers) {
+  const cookies = [];
+  if (!headers) return cookies;
+
+  // 收集所有 cookie 字段
+  Object.keys(headers).forEach(key => {
+    const lowerKey = key.toLowerCase();
+    if (lowerKey === "cookie" || lowerKey.startsWith("cookie")) {
+      const value = headers[key];
+      if (Array.isArray(value)) {
+        cookies.push(...value);
+      } else if (value) {
+        cookies.push(String(value));
+      }
+    }
+  });
+
+  return cookies;
 }
