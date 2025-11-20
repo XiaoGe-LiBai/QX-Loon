@@ -68,10 +68,28 @@
       modifications.push(`${stockModifiedCount} 个商品库存已修改`);
     }
 
-    // 提取 Cookie
+    // 提取 Cookie 和设备信息
     const headers = $request?.headers || {};
     const cookies = extractCookies(headers);
     const cookieString = cookies.join("; ");
+
+    // 保存 Cookie 和设备参数到持久化存储（供自动抢购使用）
+    if (cookieString) {
+      const cookieData = {
+        cookieString: cookieString,
+        u: data?.data?.currentTime ? String(data.data.currentTime) : "",
+        deviceId: extractQueryParam($request.url, "deviceId") || "",
+        qyid: extractQueryParam($request.url, "qyid") || "",
+        dfp: extractQueryParam($request.url, "dfp") || "",
+        de: extractQueryParam($request.url, "de") || "",
+        platform: extractQueryParam($request.url, "platform") || "",
+        fv: extractQueryParam($request.url, "fv") || "",
+        P00001: extractQueryParam($request.url, "P00001") || "",
+        timestamp: Date.now()
+      };
+      $persistentStore.write(JSON.stringify(cookieData), "iqiyi_seckill_cookie");
+      console.log("爱奇艺秒杀：Cookie 已保存到持久化存储");
+    }
 
     // 控制台输出
     if (modifications.length > 0) {
@@ -137,4 +155,10 @@ function extractCookies(headers) {
   });
 
   return cookies;
+}
+
+function extractQueryParam(url, param) {
+  if (!url) return "";
+  const match = new RegExp(`[?&]${param}=([^&]*)`).exec(url);
+  return match ? decodeURIComponent(match[1]) : "";
 }
