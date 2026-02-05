@@ -9,7 +9,11 @@
 enableModify = switch,true,tag=启用状态修改,desc=是否启用 exchangeDetailStatus 状态修改功能
 
 [Panel]
-京东金融优惠券 = script-name=京东金融积分商城, update-interval=-1
+京东金融-10元白条券 = script-name=京东金融积分商城, update-interval=-1, argument=831236324
+京东金融-5元白条券 = script-name=京东金融积分商城, update-interval=-1, argument=832336334
+京东金融-2元白条券 = script-name=京东金融积分商城, update-interval=-1, argument=833436344
+京东金融-1元白条券 = script-name=京东金融积分商城, update-interval=-1, argument=510033494
+京东金融-10元支付券 = script-name=京东金融积分商城, update-interval=-1, argument=592534154
 
 [Script]
 http-response ^https?:\/\/ms\.jr\.jd\.com\/gw2\/generic\/nPointMall\/newh5\/m\/gateMallProductDetail script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/JD_ExchangeStatus.js, requires-body=true, timeout=30, tag=修改兑换状态, enable={enableModify}

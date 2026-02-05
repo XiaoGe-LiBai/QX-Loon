@@ -9,33 +9,38 @@
 const scriptName = '京东金融积分商城';
 
 // ==================== 优惠券配置 ====================
-const coupons = [
-  {
-    name: "小金库还白条立减券 10元",
-    goodsId: "831236324",
-    icon: "💰"
+const couponsMap = {
+  "831236324": {
+    name: "小金库还白条立减券",
+    amount: "10元",
+    icon: "💰",
+    color: "#FF6B6B"
   },
-  {
-    name: "小金库还白条立减券 5元",
-    goodsId: "832336334",
-    icon: "💵"
+  "832336334": {
+    name: "小金库还白条立减券",
+    amount: "5元",
+    icon: "💵",
+    color: "#4ECDC4"
   },
-  {
-    name: "小金库还白条立减券 2元",
-    goodsId: "833436344",
-    icon: "💴"
+  "833436344": {
+    name: "小金库还白条立减券",
+    amount: "2元",
+    icon: "💴",
+    color: "#45B7D1"
   },
-  {
-    name: "小金库还白条立减券 1元",
-    goodsId: "510033494",
-    icon: "💸"
+  "510033494": {
+    name: "小金库还白条立减券",
+    amount: "1元",
+    icon: "💸",
+    color: "#96CEB4"
   },
-  {
-    name: "白条支付立减 10元",
-    goodsId: "592534154",
-    icon: "🎫"
+  "592534154": {
+    name: "白条支付立减",
+    amount: "10元",
+    icon: "🎫",
+    color: "#FFEAA7"
   }
-];
+};
 
 // ==================== 功能1：状态修改 ====================
 // HTTP 响应处理函数
@@ -85,7 +90,19 @@ function generateUrl(goodsId) {
 }
 
 // 面板显示函数
-function showPanel() {
+function showPanel(goodsId) {
+  // 获取优惠券信息
+  const coupon = couponsMap[goodsId];
+
+  if (!coupon) {
+    return {
+      title: "❌ 优惠券不存在",
+      content: `商品ID: ${goodsId}\n未找到对应的优惠券信息`,
+      icon: "exclamationmark.triangle.fill",
+      "icon-color": "#FF3B30"
+    };
+  }
+
   const now = new Date();
   const timeStr = now.toLocaleTimeString('zh-CN', {
     hour12: false,
@@ -94,27 +111,23 @@ function showPanel() {
   });
 
   // 构建面板标题
-  let title = "🏪 京东金融优惠券";
+  const title = `${coupon.icon} ${coupon.name}`;
 
   // 构建面板内容
-  let content = `⏰ 更新时间: ${timeStr}\n\n`;
-  content += "📋 可用优惠券列表:\n";
+  let content = `💵 面额: ${coupon.amount}\n`;
+  content += `⏰ 更新: ${timeStr}\n`;
+  content += `🆔 商品ID: ${goodsId}\n\n`;
+  content += `💡 点击面板立即跳转兑换`;
 
-  coupons.forEach((coupon) => {
-    content += `${coupon.icon} ${coupon.name}\n`;
-  });
-
-  content += "\n💡 点击面板可快速跳转到优惠券页面";
-
-  // 默认跳转到第一个优惠券
-  const defaultUrl = generateUrl(coupons[0].goodsId);
+  // 生成跳转链接
+  const url = generateUrl(goodsId);
 
   return {
     title: title,
     content: content,
     icon: "creditcard.fill",
-    "icon-color": "#FF6B6B",
-    url: defaultUrl
+    "icon-color": coupon.color,
+    url: url
   };
 }
 
@@ -126,6 +139,8 @@ if (typeof $response !== 'undefined' && $response.body) {
   $done(result);
 } else {
   // 面板模式：显示跳转界面
-  const panelResult = showPanel();
+  // 获取传入的商品ID参数
+  const goodsId = $argument || "831236324"; // 默认使用10元券
+  const panelResult = showPanel(goodsId);
   $done(panelResult);
 }
