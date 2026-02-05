@@ -1,16 +1,12 @@
 #!name = 京东金融积分商城
 #!author = 菜狗
-#!desc = 修改京东金融积分商城 exchangeDetailStatus 状态值为 1，点击插件图标可快速跳转到优惠券页面
+#!desc = 修改京东金融积分商城 exchangeDetailStatus 状态值为 1，用于解锁商品兑换功能
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/jdjr.png
 #!openUrl = https://apps.apple.com/cn/app/id895682747
 #!date = 2026-02-05
 
-[Argument]
-enableModify = switch,true,tag=启用状态修改,desc=是否启用 exchangeDetailStatus 状态修改功能
-couponSelect = select,"831236324","832336334","833436344","510033494","592534154",tag=选择优惠券,desc=选择要跳转的优惠券：10元白条券/5元白条券/2元白条券/1元白条券/10元支付券
-
 [script]
-http-response ^https?:\/\/ms\.jr\.jd\.com\/gw2\/generic\/nPointMall\/newh5\/m\/gateMallProductDetail script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/JD_ExchangeStatus.js, requires-body=true, timeout=30, tag=修改兑换状态, enable={enableModify}
+http-response ^https?:\/\/ms\.jr\.jd\.com\/gw2\/generic\/nPointMall\/newh5\/m\/gateMallProductDetail script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/JD_ExchangeStatus.js, requires-body=true, timeout=30, tag=修改兑换状态
 
 [mitm]
 hostname = ms.jr.jd.com
