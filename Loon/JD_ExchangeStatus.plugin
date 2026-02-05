@@ -2,7 +2,7 @@
 #!author = 菜狗
 #!desc = 修改京东金融积分商城商品详情接口的 exchangeDetailStatus 状态值为 1，用于解锁商品兑换功能
 #!date = 2026-02-05
-#!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/ksjsb.png
+#!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/jdjr.png
 #!openUrl = https://apps.apple.com/cn/app/id895682747
 
 [Argument]
