@@ -1,0 +1,16 @@
+#!name= 京东金融积分商城状态修改
+#!desc= 修改京东金融积分商城商品详情接口的 exchangeDetailStatus 状态值为 1，用于解锁商品兑换功能
+#!author= XiaoGe-LiBai
+#!icon= https://raw.githubusercontent.com/example/icon.png
+#!tag= 京东金融,积分商城,状态修改
+#!system = iOS,iPadOS
+#!openUrl = https://apps.apple.com/cn/app/id895682747
+
+[Argument]
+enableModify = switch,true,tag=启用状态修改,desc=是否启用 exchangeDetailStatus 状态修改功能
+
+[Script]
+http-response ^https?:\/\/ms\.jr\.jd\.com\/gw2\/generic\/nPointMall\/newh5\/m\/gateMallProductDetail script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/dml_token.js, requires-body=true, timeout=30, tag=修改兑换状态, enable={enableModify}
+
+[MITM]
+hostname = ms.jr.jd.com
