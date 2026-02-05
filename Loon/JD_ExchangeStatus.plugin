@@ -1,5 +1,5 @@
 #!name = 京东金融积分商城
-#!author = 菜狗
+#!author = XiaoGe-LiBai
 #!desc = 修改京东金融积分商城 exchangeDetailStatus 状态值为 1，用于解锁商品兑换功能\n小金库还白条立减券 10元券:https://member.jr.jd.com/member/integral-mall-detail/detail/?goodsId=831236324
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/jdjr.png
 #!openUrl = https://apps.apple.com/cn/app/id895682747
