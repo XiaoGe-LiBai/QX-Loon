@@ -20,11 +20,11 @@
 
     const tokenData = {
       url: $request.url,
-      headers: $request.headers,
+      headers: JSON.stringify($request.headers),
       body: $request.body
     };
 
-    const output = JSON.stringify({ userId, token: tokenData, userName: mobile }, null, 2);
+    const output = JSON.stringify({ userId, token: tokenData, userName: mobile });
 
     console.log('✅ Token已抓取');
     console.log(output);
