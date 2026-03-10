@@ -1,5 +1,0 @@
-[Script]
-http-request ^https:\/\/ccsp-egmas\.sf-express\.com\/cx-app-member\/member\/app\/user\/universalSign script-path=https://git.fuckinghigh.eu.org/xzxxn777/scripts/raw/branch/main/SFSY/sfsy.js, requires-body=true, timeout=10, tag=顺丰速运获取Token
-
-[MITM]
-hostname = ccsp-egmas.sf-express.com
