@@ -1,13 +1,12 @@
-#!name = 顺丰速运数据抓取
+#!name = 顺丰速运Token提取
 #!author = XiaoGe-LiBai
-#!desc = 抓取顺丰速运的登录数据
+#!desc = 仅提取顺丰速运Token,不执行任务
 #!date = 2026-03-10
 #!icon = https://raw.githubusercontent.com/Orz-3/mini/master/Color/sfexpress.png
 #!openUrl = https://apps.apple.com/cn/app/id899529698
 
 [Script]
-http-request ^https:\/\/ccsp-egmas\.sf-express\.com\/cx-app-member\/member\/app\/user\/universalSign script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/顺丰_decoded.js, requires-body=true, timeout=10, tag=顺丰速运数据抓取
-cron "0 9 * * *" script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/顺丰_decoded.js, timeout=300, tag=顺丰速运签到
+http-request ^https:\/\/ccsp-egmas\.sf-express\.com\/cx-app-member\/member\/app\/user\/universalSign script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/顺丰_decoded.js, requires-body=true, timeout=10, tag=顺丰速运Token提取
 
 [MITM]
 hostname = ccsp-egmas.sf-express.com
