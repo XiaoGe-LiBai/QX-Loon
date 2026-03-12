@@ -18,9 +18,14 @@
       return $done({});
     }
 
+    const headers = $request.headers || {};
+    const lowercaseHeaders = Object.fromEntries(
+      Object.entries(headers).map(([k, v]) => [k.toLowerCase(), v])
+    );
+
     const tokenData = {
       url: $request.url,
-      headers: JSON.stringify($request.headers),
+      headers: lowercaseHeaders,
       body: $request.body
     };
 
