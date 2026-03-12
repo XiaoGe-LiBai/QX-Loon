@@ -1,6 +1,6 @@
 #!name = 顺丰速运Token提取
 #!author = XiaoGe-LiBai
-#!desc = 仅提取顺丰速运Token,不执行任务
+#!desc = 提取顺丰速运Token
 #!date = 2026-03-10
 #!icon = https://raw.githubusercontent.com/Orz-3/mini/master/Color/sfexpress.png
 #!openUrl = https://apps.apple.com/cn/app/id899529698
