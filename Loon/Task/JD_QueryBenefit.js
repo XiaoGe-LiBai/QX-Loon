@@ -1,6 +1,6 @@
 /**
  * 京东金融白条权益状态修改脚本
- * 功能：将 queryBenefit 响应中的 availableState=no 改为 yes
+ * 功能：将 queryBenefit 响应中的 receiveState=zero 改为 no
  *
  * @author 菜狗
  * @date 2026-04-08
@@ -16,7 +16,7 @@ function done(body) {
   $done({ body });
 }
 
-function replaceAvailableState(target) {
+function replaceReceiveState(target) {
   let changedCount = 0;
 
   function walk(value) {
@@ -32,8 +32,8 @@ function replaceAvailableState(target) {
     Object.keys(value).forEach((key) => {
       const current = value[key];
 
-      if (key === "availableState" && current === "no") {
-        value[key] = "yes";
+      if (key === "receiveState" && current === "zero") {
+        value[key] = "no";
         changedCount += 1;
         return;
       }
@@ -62,8 +62,8 @@ function main() {
   }
 
   try {
-    const changedCount = replaceAvailableState(data);
-    log(`availableState 修改数量: ${changedCount}`);
+    const changedCount = replaceReceiveState(data);
+    log(`receiveState 修改数量: ${changedCount}`);
 
     if (changedCount === 0) {
       return done(body);
