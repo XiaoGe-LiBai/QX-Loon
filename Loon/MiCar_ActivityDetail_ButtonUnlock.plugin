@@ -1,0 +1,11 @@
+#!name = 小米汽车社区-活动详情按钮解锁
+#!desc = 将活动详情接口返回的 data.button.showEnable/enable 强制改为 true（仅影响展示/按钮可用性）
+#!author = XiaoGe-LiBai
+#!date = 2026-04-27
+
+[rewrite]
+^https?:\/\/api\.community\.car\.miui\.com\/api\/h5\/activity\/v1\/detail\?.* response-body-json-jq '.data.button.showEnable=true|.data.button.enable=true'
+
+[MITM]
+hostname = api.community.car.miui.com
+
