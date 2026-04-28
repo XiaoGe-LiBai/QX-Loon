@@ -1,7 +1,9 @@
 #!name = 小米汽车社区-活动详情按钮解锁
-#!desc = 将活动详情接口返回的 data.button.showEnable/enable 强制改为 true（仅影响展示/按钮可用性）
+#!desc = 将活动详情接口返回的 data.button.showEnable/enable 强制改为 true
 #!author = XiaoGe-LiBai
 #!date = 2026-04-27
+#!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/xmqc.webp
+#!openUrl = https://apps.apple.com/cn/app/id6473663234
 
 [rewrite]
 ^https?:\/\/api\.community\.car\.miui\.com\/api\/h5\/activity\/v1\/detail\?.* response-body-json-jq '.data.button.showEnable=true|.data.button.enable=true'
