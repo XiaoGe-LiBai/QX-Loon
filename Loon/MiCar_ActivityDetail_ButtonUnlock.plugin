@@ -7,6 +7,7 @@
 
 [rewrite]
 ^https?:\/\/api\.community\.car\.miui\.com\/api\/h5\/activity\/v1\/detail\?.* response-body-json-jq '.data.button.showEnable=true|.data.button.enable=true'
+^https?:\/\/api\.community\.car\.miui\.com\/api\/h5\/activity\/v1\/refreshCalendar\?.* response-body-json-jq '.code=200|.message="成功"'
 
 [MITM]
 hostname = api.community.car.miui.com
