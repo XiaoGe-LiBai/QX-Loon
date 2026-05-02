@@ -1,14 +1,12 @@
 #!name = 小米汽车社区-活动详情按钮解锁
-#!desc = 将活动详情接口返回的 data.button.showEnable/enable 强制改为 true
+#!desc = 解锁活动报名按钮，注入日历数据，放行报名全流程（适用于北京车展等名额已满活动）
 #!author = XiaoGe-LiBai
-#!date = 2026-04-27
+#!date = 2026-05-02
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/xmqc.webp
 #!openUrl = https://apps.apple.com/cn/app/id6473663234
 
-[rewrite]
-^https?:\/\/api\.community\.car\.miui\.com\/api\/h5\/activity\/v1\/detail\?.* response-body-json-jq '.data.button.showEnable=true|.data.button.enable=true'
-^https?:\/\/api\.community\.car\.miui\.com\/api\/h5\/activity\/v1\/refreshCalendar\?.* response-body-json-jq '.code=200|.message="成功"'
+[script]
+http-response ^https?:\/\/api\.community\.car\.miui\.com\/api\/h5\/activity\/v1\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/MiCar_ActivityDetail_ButtonUnlock.js, requires-body=true, timeout=30, tag=小米汽车活动解锁
 
 [MITM]
 hostname = api.community.car.miui.com
-
