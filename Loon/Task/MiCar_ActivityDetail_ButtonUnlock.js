@@ -1,5 +1,5 @@
 // 小米汽车社区 - 活动详情完整解锁
-// 覆盖 5 个接口：detail / refreshCalendar / queryCalendarRoundInfo / checkAndSaveSelectedRound / confirm(Enrollment)
+// 覆盖接口：detail / refreshCalendar / queryCalendarRoundInfo / checkAndSaveSelectedRound / getSignSurveyById
 // @author XiaoGe-LiBai
 
 var url = $request.url;
@@ -14,49 +14,45 @@ try {
     $done({});
 }
 
-var SLOTS = [
-    ['10:00', '11:00'],
-    ['12:00', '13:00'],
-    ['14:00', '15:00'],
-    ['16:00', '17:00']
-];
+// 与官方服务端格式完全对齐的日历数据（仅 5月3日剩余场次）
+var CALENDAR_DATA = {
+    activityId: '446111093',
+    enableQuota: true,
+    pay: false,
+    monthList: [{
+        year: '2026',
+        month: '5',
+        defaultRound: '2026-05-03 14:00-15:00',
+        expired: false,
+        dateList: [{
+            date: '3',
+            disabled: false,
+            times: [
+                { startTime: '14:00', endTime: '15:00', roundName: '第三场14:00-15:00', round: '2026-05-03 14:00-15:00', buyLimit: 1, disabled: false },
+                { startTime: '16:00', endTime: '17:00', roundName: '第四场16:00-17:00', round: '2026-05-03 16:00-17:00', buyLimit: 1, disabled: true, disableText: '缺货' }
+            ]
+        }]
+    }]
+};
 
-function makeTimes(dateStr) {
-    return SLOTS.map(function (s) {
-        return {
-            round: dateStr + ' ' + s[0] + '-' + s[1],
-            startTime: s[0],
-            endTime: s[1],
-            disabled: false
-        };
-    });
-}
-
-// 1. 解锁活动按钮（showEnable / enable → true）
+// 1. 解锁活动按钮 + 开放报名状态
 if (url.indexOf('/v1/detail') !== -1) {
     if (obj.code === 200 && obj.data && obj.data.button) {
         obj.data.button.showEnable = true;
         obj.data.button.enable = true;
-        console.log('[小米汽车活动] ✅ 按钮已解锁');
+        obj.data.button.title = '立即预约';
+        obj.data.signStatus = 1;
+        obj.data.registerStatus = 1;
+        console.log('[小米汽车活动] ✅ 按钮已解锁，报名状态已开放');
     }
 }
-// 2. 注入日历数据（5 月 2-3 日，每日 4 场）
+// 2. 注入日历数据（仅在服务端异常时注入，格式对齐官方）
 else if (url.indexOf('/v1/refreshCalendar') !== -1) {
     if (obj.code !== 200) {
         obj.code = 200;
         obj.message = '成功';
-        obj.data = {
-            monthList: [{
-                year: 2026,
-                month: 5,
-                defaultRound: '2026-05-03 10:00-11:00',
-                dateList: [
-                    { date: 2, times: makeTimes('2026-05-02') },
-                    { date: 3, times: makeTimes('2026-05-03') }
-                ]
-            }]
-        };
-        console.log('[小米汽车活动] ✅ refreshCalendar 已修复，注入 4 场次日历');
+        obj.data = CALENDAR_DATA;
+        console.log('[小米汽车活动] ✅ refreshCalendar 已修复，注入 5月3日剩余场次');
     }
 }
 // 3. 选择场次验证放行
