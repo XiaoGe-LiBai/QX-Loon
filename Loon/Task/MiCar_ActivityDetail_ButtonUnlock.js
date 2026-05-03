@@ -68,29 +68,33 @@ else if (url.indexOf('/v1/queryCalendarRoundInfo') !== -1) {
         console.log('[小米汽车活动] ✅ queryCalendarRoundInfo 放行');
     }
 }
-// 4. 预占场次放行 — 从请求体提取 round，注入进 data.round_info
+// 4. 预占场次放行 — 服务端真实返回 data:true，与之对齐
 else if (url.indexOf('/v1/checkAndSaveSelectedRound') !== -1) {
     if (obj.code !== 200) {
-        var round_info = '';
-        try {
-            var reqObj = JSON.parse($request.body);
-            round_info = reqObj.round || '';
-        } catch (e) {}
         obj.code = 200;
         obj.message = '成功';
-        obj.data = { round_info: round_info };
-        console.log('[小米汽车活动] ✅ checkAndSaveSelectedRound 放行 round_info=' + round_info);
+        obj.data = true;
+        console.log('[小米汽车活动] ✅ checkAndSaveSelectedRound 放行');
     }
 }
-// 5. 最终报名提交放行（confirm / confirmEnrollment）
-else if (url.indexOf('/v1/confirmEnrollment') !== -1 || url.indexOf('/v1/confirm') !== -1) {
+// 4b. 报名表单获取放行（v3 接口，14:00 前返回 2008，注入空问卷绕过）
+else if (url.indexOf('/v3/getSignSurveyById') !== -1) {
     if (obj.code !== 200) {
         obj.code = 200;
         obj.message = '成功';
-        obj.data = null;
-        console.log('[小米汽车活动] ✅ confirm 放行');
+        obj.data = { surveyList: [] };
+        console.log('[小米汽车活动] ✅ getSignSurveyById 放行（空问卷）');
     }
 }
+// 5. 最终报名提交放行（confirm / confirmEnrollment）—— 暂时注释，观察服务端真实返回
+// else if (url.indexOf('/v1/confirmEnrollment') !== -1 || url.indexOf('/v1/confirm') !== -1) {
+//     if (obj.code !== 200) {
+//         obj.code = 200;
+//         obj.message = '成功';
+//         obj.data = null;
+//         console.log('[小米汽车活动] ✅ confirm 放行');
+//     }
+// }
 // 6. 报名结果查询 — 强制 signStatus=3(PASSED)，保留服务端 infoId
 else if (url.indexOf('/v1/querySignInfo') !== -1) {
     if (obj.code === 200 && obj.data) {
