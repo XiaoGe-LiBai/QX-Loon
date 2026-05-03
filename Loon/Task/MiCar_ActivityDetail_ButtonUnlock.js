@@ -68,13 +68,18 @@ else if (url.indexOf('/v1/queryCalendarRoundInfo') !== -1) {
         console.log('[小米汽车活动] ✅ queryCalendarRoundInfo 放行');
     }
 }
-// 4. 预占场次放行
+// 4. 预占场次放行 — 从请求体提取 round，注入进 data.round_info
 else if (url.indexOf('/v1/checkAndSaveSelectedRound') !== -1) {
     if (obj.code !== 200) {
+        var round_info = '';
+        try {
+            var reqObj = JSON.parse($request.body);
+            round_info = reqObj.round || '';
+        } catch (e) {}
         obj.code = 200;
         obj.message = '成功';
-        obj.data = null;
-        console.log('[小米汽车活动] ✅ checkAndSaveSelectedRound 放行');
+        obj.data = { round_info: round_info };
+        console.log('[小米汽车活动] ✅ checkAndSaveSelectedRound 放行 round_info=' + round_info);
     }
 }
 // 5. 最终报名提交放行（confirm / confirmEnrollment）
@@ -84,6 +89,15 @@ else if (url.indexOf('/v1/confirmEnrollment') !== -1 || url.indexOf('/v1/confirm
         obj.message = '成功';
         obj.data = null;
         console.log('[小米汽车活动] ✅ confirm 放行');
+    }
+}
+// 6. 报名结果查询 — 强制 signStatus=3(PASSED)，保留服务端 infoId
+else if (url.indexOf('/v1/querySignInfo') !== -1) {
+    if (obj.code === 200 && obj.data) {
+        if (obj.data.signStatus !== 3) {
+            console.log('[小米汽车活动] ✅ querySignInfo signStatus:' + obj.data.signStatus + '→3');
+            obj.data.signStatus = 3;
+        }
     }
 }
 
