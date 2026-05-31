@@ -3,6 +3,7 @@
 触发条件：拦截 https://game.dominos.com.cn/{活动名}/v2/getUser 请求（支持所有活动）
 通知：点击可复制 Token（可通过参数控制）
 输出格式：,dlm set token#备注
+ * @license MIT
 */
 (function () {
   try {
@@ -116,3 +117,4 @@ function readHeader(headers, target) {
   }
   return headers[target] || headers[target.toUpperCase()] || '';
 }
+
