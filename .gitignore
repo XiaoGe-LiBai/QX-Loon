@@ -19,3 +19,5 @@ dlm.js
 *.saz
 *.mitm
 /docs
+AGENTS.md
+.editorconfig
