@@ -1,13 +1,13 @@
 #!name = 京东金融积分商城
 #!author = XiaoGe-LiBai
-#!desc = 修改京东金融积分商城 exchangeDetailStatus 状态值为 1，用于解锁商品兑换功能\n修改白条权益 queryBenefit 接口 availableState 强制为 yes，receiveState 强制为 no
+#!desc = 修改京东金融积分兑换状态与白条权益状态
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/713de1117924c559e89034c8c3cc4ae26c4d89fb/Photos/jdjr.png
 #!openUrl = https://apps.apple.com/cn/app/id895682747
-#!date = 2026-04-08
+#!date = 2026-05-31
 
-[script]
+[Script]
 http-response ^https?:\/\/ms\.jr\.jd\.com\/gw2\/generic\/nPointMall\/newh5\/m\/gateMallProductDetail script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/JD_ExchangeStatus.js, requires-body=true, timeout=30, tag=修改兑换状态
 http-response ^https?:\/\/ms\.jr\.jd\.com\/gw\/generic\/zc\/h5\/m\/queryBenefit script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/JD_QueryBenefit.js, requires-body=true, timeout=30, tag=修改白条权益状态
 
-[mitm]
+[MITM]
 hostname = ms.jr.jd.com

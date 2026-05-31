@@ -1,92 +1,71 @@
 /**
- * 京东金融白条权益状态修改脚本
- * 功能：
- * 1) 将 queryBenefit 响应中的 receiveState 强制改为 no（主要用于把 zero 改为 no）
- * 2) 将 queryBenefit 响应中的 availableState 强制改为 yes
- *
- * @author 菜狗
- * @date 2026-04-08
+ * 京东金融白条权益 - 修改状态
+ * 功能：深度遍历 queryBenefit 响应，将 receiveState 强制改为 no、availableState 强制改为 yes
+ * @author XiaoGe-LiBai
+ * @date 2026-05-31
  */
 
-const SCRIPT_NAME = "京东金融白条权益";
+const scriptName = '京东金融白条权益';
 
-function log(message) {
-  console.log(`[${SCRIPT_NAME}] ${message}`);
-}
+function replaceBenefitState(data) {
+    let receiveCount = 0;
+    let availableCount = 0;
 
-function done(body) {
-  $done({ body });
-}
+    function walk(obj) {
+        if (!obj || typeof obj !== 'object') return;
 
-function replaceBenefitState(target) {
-  let receiveStateChanged = 0;
-  let availableStateChanged = 0;
+        if (Array.isArray(obj)) {
+            obj.forEach(walk);
+            return;
+        }
 
-  function walk(value) {
-    if (!value || typeof value !== "object") {
-      return;
+        Object.keys(obj).forEach(key => {
+            const val = obj[key];
+
+            if (key === 'availableState' && val !== 'yes') {
+                obj[key] = 'yes';
+                availableCount++;
+                return;
+            }
+
+            if (key === 'receiveState' && val !== 'no') {
+                obj[key] = 'no';
+                receiveCount++;
+                return;
+            }
+
+            walk(val);
+        });
     }
 
-    if (Array.isArray(value)) {
-      value.forEach(walk);
-      return;
-    }
-
-    Object.keys(value).forEach((key) => {
-      const current = value[key];
-
-      // 强制可领取状态为 yes
-      if (key === "availableState" && current !== "yes") {
-        value[key] = "yes";
-        availableStateChanged += 1;
-        return;
-      }
-
-      // 强制领取状态为 no（兼容 receiveState=zero 的情况）
-      if (key === "receiveState" && current !== "no") {
-        value[key] = "no";
-        receiveStateChanged += 1;
-        return;
-      }
-
-      walk(current);
-    });
-  }
-
-  walk(target);
-  return { receiveStateChanged, availableStateChanged };
+    walk(data);
+    return { receiveCount, availableCount };
 }
 
-function main() {
-  const body = $response.body;
-  if (!body) {
-    log("响应体为空，跳过处理");
-    return done(body);
-  }
+function modifyResponse() {
+    try {
+        let body = $response.body;
+        if (!body) {
+            console.log(`[${scriptName}] 响应体为空，跳过处理`);
+            return { body };
+        }
 
-  let data;
-  try {
-    data = JSON.parse(body);
-  } catch (error) {
-    log(`JSON 解析失败: ${error.message}`);
-    return done(body);
-  }
+        let obj = JSON.parse(body);
 
-  try {
-    const { receiveStateChanged, availableStateChanged } =
-      replaceBenefitState(data);
-    log(`availableState 修改数量: ${availableStateChanged}`);
-    log(`receiveState 修改数量: ${receiveStateChanged}`);
+        const { receiveCount, availableCount } = replaceBenefitState(obj);
 
-    if (receiveStateChanged === 0 && availableStateChanged === 0) {
-      return done(body);
+        if (receiveCount === 0 && availableCount === 0) {
+            return { body };
+        }
+
+        console.log(`[${scriptName}] ✅ receiveState 修改: ${receiveCount}处  availableState 修改: ${availableCount}处`);
+        return { body: JSON.stringify(obj) };
+
+    } catch (error) {
+        console.log(`[${scriptName}] ❌ 处理异常: ${error.message}`);
+        return { body: $response.body };
     }
-
-    return done(JSON.stringify(data));
-  } catch (error) {
-    log(`处理异常: ${error.message}`);
-    return done(body);
-  }
 }
 
-main();
+const result = modifyResponse();
+$done(result);
