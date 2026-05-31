@@ -14,24 +14,37 @@ try {
     $done({});
 }
 
-// 与官方服务端格式完全对齐的日历数据（仅 5月3日剩余场次）
+// 与官方服务端格式完全对齐的日历数据（粤港澳大湾区车展）
 var CALENDAR_DATA = {
-    activityId: '446111093',
+    activityId: '809302857',
     enableQuota: true,
     pay: false,
     monthList: [{
         year: '2026',
         month: '5',
-        defaultRound: '2026-05-03 14:00-15:00',
+        defaultRound: '2026-05-31 10:00-11:00',
         expired: false,
         dateList: [{
-            date: '3',
+            date: '31',
             disabled: false,
             times: [
-                { startTime: '14:00', endTime: '15:00', roundName: '第三场14:00-15:00', round: '2026-05-03 14:00-15:00', buyLimit: 1, disabled: false },
-                { startTime: '16:00', endTime: '17:00', roundName: '第四场16:00-17:00', round: '2026-05-03 16:00-17:00', buyLimit: 1, disabled: true, disableText: '缺货' }
+                { startTime: '10:00', endTime: '11:00', roundName: '5月31日10:00-11:00', round: '2026-05-31 10:00-11:00', buyLimit: 1, disabled: false }
             ]
         }]
+    }, {
+        year: '2026',
+        month: '6',
+        defaultRound: '2026-06-01 10:00-11:00',
+        expired: false,
+        dateList: [
+            { date: '1', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月1日10:00-11:00', round: '2026-06-01 10:00-11:00', buyLimit: 1, disabled: false }] },
+            { date: '2', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月2日10:00-11:00', round: '2026-06-02 10:00-11:00', buyLimit: 1, disabled: false }] },
+            { date: '3', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月3日10:00-11:00', round: '2026-06-03 10:00-11:00', buyLimit: 1, disabled: false }] },
+            { date: '4', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月4日10:00-11:00', round: '2026-06-04 10:00-11:00', buyLimit: 1, disabled: false }] },
+            { date: '5', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月5日10:00-11:00', round: '2026-06-05 10:00-11:00', buyLimit: 1, disabled: false }] },
+            { date: '6', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月6日10:00-11:00', round: '2026-06-06 10:00-11:00', buyLimit: 1, disabled: false }] },
+            { date: '7', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月7日10:00-11:00', round: '2026-06-07 10:00-11:00', buyLimit: 1, disabled: false }] }
+        ]
     }]
 };
 
