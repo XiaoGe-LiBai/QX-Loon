@@ -1,4 +1,4 @@
-#!name = 顺丰速运Token提取
+﻿#!name = 顺丰速运Token提取
 #!author = XiaoGe-LiBai
 #!desc = 提取顺丰速运Token
 #!date = 2026-03-10
@@ -6,7 +6,7 @@
 #!openUrl = https://apps.apple.com/cn/app/id899529698
 
 [Script]
-http-request ^https:\/\/ccsp-egmas\.sf-express\.com\/cx-app-member\/member\/app\/user\/universalSign script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/顺丰_decoded.js, requires-body=true, timeout=10, tag=顺丰速运Token提取
+http-request ^https:\/\/ccsp-egmas\.sf-express\.com\/cx-app-member\/member\/app\/user\/universalSign script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/sf_token.js, requires-body=true, timeout=10, tag=顺丰速运Token提取
 
 [MITM]
 hostname = ccsp-egmas.sf-express.com
