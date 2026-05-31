@@ -28,7 +28,9 @@ var CALENDAR_DATA = {
             date: '31',
             disabled: false,
             times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '5月31日10:00-11:00', round: '2026-05-31 10:00-11:00', buyLimit: 1, disabled: false }
+                { startTime: '10:00', endTime: '11:00', roundName: '5月31日10:00-11:00', round: '2026-05-31 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '5月31日13:00-14:00', round: '2026-05-31 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '5月31日15:00-16:00', round: '2026-05-31 15:00-16:00', buyLimit: 1, disabled: false }
             ]
         }]
     }, {
@@ -37,13 +39,41 @@ var CALENDAR_DATA = {
         defaultRound: '2026-06-01 10:00-11:00',
         expired: false,
         dateList: [
-            { date: '1', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月1日10:00-11:00', round: '2026-06-01 10:00-11:00', buyLimit: 1, disabled: false }] },
-            { date: '2', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月2日10:00-11:00', round: '2026-06-02 10:00-11:00', buyLimit: 1, disabled: false }] },
-            { date: '3', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月3日10:00-11:00', round: '2026-06-03 10:00-11:00', buyLimit: 1, disabled: false }] },
-            { date: '4', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月4日10:00-11:00', round: '2026-06-04 10:00-11:00', buyLimit: 1, disabled: false }] },
-            { date: '5', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月5日10:00-11:00', round: '2026-06-05 10:00-11:00', buyLimit: 1, disabled: false }] },
-            { date: '6', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月6日10:00-11:00', round: '2026-06-06 10:00-11:00', buyLimit: 1, disabled: false }] },
-            { date: '7', disabled: false, times: [{ startTime: '10:00', endTime: '11:00', roundName: '6月7日10:00-11:00', round: '2026-06-07 10:00-11:00', buyLimit: 1, disabled: false }] }
+            { date: '1', disabled: false, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '6月1日10:00-11:00', round: '2026-06-01 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '6月1日13:00-14:00', round: '2026-06-01 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '6月1日15:00-16:00', round: '2026-06-01 15:00-16:00', buyLimit: 1, disabled: false }
+            ]},
+            { date: '2', disabled: false, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '6月2日10:00-11:00', round: '2026-06-02 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '6月2日13:00-14:00', round: '2026-06-02 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '6月2日15:00-16:00', round: '2026-06-02 15:00-16:00', buyLimit: 1, disabled: false }
+            ]},
+            { date: '3', disabled: false, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '6月3日10:00-11:00', round: '2026-06-03 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '6月3日13:00-14:00', round: '2026-06-03 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '6月3日15:00-16:00', round: '2026-06-03 15:00-16:00', buyLimit: 1, disabled: false }
+            ]},
+            { date: '4', disabled: false, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '6月4日10:00-11:00', round: '2026-06-04 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '6月4日13:00-14:00', round: '2026-06-04 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '6月4日15:00-16:00', round: '2026-06-04 15:00-16:00', buyLimit: 1, disabled: false }
+            ]},
+            { date: '5', disabled: false, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '6月5日10:00-11:00', round: '2026-06-05 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '6月5日13:00-14:00', round: '2026-06-05 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '6月5日15:00-16:00', round: '2026-06-05 15:00-16:00', buyLimit: 1, disabled: false }
+            ]},
+            { date: '6', disabled: false, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '6月6日10:00-11:00', round: '2026-06-06 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '6月6日13:00-14:00', round: '2026-06-06 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '6月6日15:00-16:00', round: '2026-06-06 15:00-16:00', buyLimit: 1, disabled: false }
+            ]},
+            { date: '7', disabled: false, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '6月7日10:00-11:00', round: '2026-06-07 10:00-11:00', buyLimit: 1, disabled: false },
+                { startTime: '13:00', endTime: '14:00', roundName: '6月7日13:00-14:00', round: '2026-06-07 13:00-14:00', buyLimit: 1, disabled: false },
+                { startTime: '15:00', endTime: '16:00', roundName: '6月7日15:00-16:00', round: '2026-06-07 15:00-16:00', buyLimit: 1, disabled: false }
+            ]}
         ]
     }]
 };
