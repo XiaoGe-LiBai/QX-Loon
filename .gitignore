@@ -1,4 +1,4 @@
-ck转换
+﻿ck转换
 dlm.js
 达乐美
 快手普通版kaw抓包.txt
@@ -12,3 +12,9 @@ dlm.js
 爱奇艺尖叫之夜/抢购抓包/response_body_raw
 爱奇艺尖叫之夜/配置步骤.md
 爱奇艺尖叫之夜/iqiyi_seckill.py
+
+# 抓包原始文件（不提交到仓库）
+*.har
+*.chlsj
+*.saz
+*.mitm
