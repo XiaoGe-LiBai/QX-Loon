@@ -1,55 +1,47 @@
 /**
- * Loon http-request script
- * 场景：快手极速版广告接口，请求头包含 kaw 参数
- * 匹配：^https?:\/\/api\.e\.kuaishou\.com\/rest\/e\/neo\/mixed\/ad
- * 功能：提取 kaw 参数并输出，不进行持久化存储
- * 输出格式：快手极速版kaw: 参数值
- * 参数说明（可选）：
- *  - notify=on/off：是否发送通知（默认 on）
- *  - clipboard=on/off：通知时是否复制 kaw 参数（默认 on）
- *  - openUrl / mediaUrl / delayMs：透传给通知参数
+ * 快手极速版广告接口 - 提取 kaw 参数
+ * 功能：从请求头提取 kaw 参数并推送通知
+ * @author XiaoGe-LiBai
+ * @date 2026-05-31
  */
+
+const scriptName = '快手极速版';
+
 (function () {
+  const args = parseArgs(typeof $argument === 'string' ? $argument : '');
+  const notify = (args.notify || 'on').toLowerCase() === 'on';
+  const clipboard = (args.clipboard || 'on').toLowerCase() !== 'off';
+
   try {
     if (!$request) {
-      throw new Error("未获取到请求对象");
+      throw new Error('未获取到请求对象');
     }
 
     const headers = $request.headers || {};
-    const args = parseArgs(typeof $argument === "string" ? $argument : "");
-
-    const notify = (args.notify || "on").toLowerCase() === "on";
-    const clipboard = (args.clipboard || "on").toLowerCase() !== "off";
-
-    // 提取 kaw 参数
-    const kawValue = readHeader(headers, "kaw");
+    const kawValue = readHeader(headers, 'kaw');
 
     if (!kawValue) {
+      console.log(`[${scriptName}] kaw 参数未找到`);
       if (notify) {
-        $notification.post("快手极速版 kaw 参数获取失败", "", "请求头中未找到 kaw 字段");
+        $notification.post(`${scriptName} kaw 参数获取失败`, '', '请求头中未找到 kaw 字段');
       }
-      console.log("快手极速版kaw: 未找到 kaw 参数");
-      console.log("请求头信息:", JSON.stringify(headers, null, 2));
       return $done({});
     }
 
-    // 输出格式：快手极速版kaw: 参数值
-    const output = `快手极速版kaw: ${kawValue}`;
+    const output = `${scriptName}kaw: ${kawValue}`;
     console.log(output);
-    console.log("📋 提示：点击弹窗通知即可自动复制完整内容到剪贴板");
 
     // 通知防抖：10秒内重复触发不通知
     const now = Date.now();
-    const lastNotifyKey = "ksjsb_kaw_last_notify";
-    const lastNotifyTime = parseInt($persistentStore.read(lastNotifyKey) || "0");
-    const cooldownMs = 10000; // 10秒冷却时间
-    const shouldNotify = notify && (now - lastNotifyTime >= cooldownMs);
+    const lastNotifyKey = 'ksjsb_kaw_last_notify';
+    const lastNotifyTime = parseInt($persistentStore.read(lastNotifyKey) || '0');
+    const cooldownMs = 10000;
 
-    if (shouldNotify) {
+    if (notify && (now - lastNotifyTime >= cooldownMs)) {
       $persistentStore.write(String(now), lastNotifyKey);
 
-      const title = "快手极速版 kaw 参数已抓取";
-      const subtitle = "👆 点击此通知自动复制";
+      const title = `${scriptName} kaw 参数已抓取`;
+      const subtitle = '👆 点击此通知自动复制';
       const preview = kawValue.length > 96 ? `${kawValue.slice(0, 96)}…` : kawValue;
 
       const attachPayload = {};
@@ -70,26 +62,25 @@
         hasAttach = true;
       }
 
-      const delayValue = Number(args.delayMs || args.delay || 0);
-      const delayMs = Number.isFinite(delayValue) ? delayValue : 0;
+      const delayMs = Math.max(0, Number(args.delayMs || args.delay || 0)) || 0;
 
       $notification.post(
         title,
         subtitle,
         preview,
         hasAttach ? attachPayload : undefined,
-        delayMs > 0 ? delayMs : 0
+        delayMs
       );
     } else if (notify) {
-      console.log("⏱️ 通知已被限流（10秒内重复触发），完整内容已输出到控制台");
+      console.log(`[${scriptName}] ⏱️ 通知已限流（10秒内重复触发）`);
     }
 
     $done({});
   } catch (err) {
     const errorMsg = String((err && err.stack) || err);
-    console.log("快手极速版 kaw 脚本异常:", errorMsg);
-    if ((args.notify || "on").toLowerCase() === "on") {
-      $notification.post("快手极速版 kaw 脚本异常", "", errorMsg);
+    console.log(`[${scriptName}] ❌ kaw 脚本异常: ${errorMsg}`);
+    if (notify) {
+      $notification.post(`${scriptName} kaw 脚本异常`, '', errorMsg);
     }
     $done({});
   }
@@ -97,12 +88,12 @@
 
 function parseArgs(str) {
   if (!str) return {};
-  return str.split("&").reduce((acc, cur) => {
+  return str.split('&').reduce((acc, cur) => {
     if (!cur) return acc;
-    const idx = cur.indexOf("=");
+    const idx = cur.indexOf('=');
     const key = (idx >= 0 ? cur.slice(0, idx) : cur).trim();
-    const val = idx >= 0 ? cur.slice(idx + 1) : "";
-    acc[key] = decodeURIComponent(val || "");
+    const val = idx >= 0 ? cur.slice(idx + 1) : '';
+    acc[key] = decodeURIComponent(val || '');
     return acc;
   }, {});
 }
@@ -111,7 +102,7 @@ function readHeader(headers, target) {
   if (!headers || !target) return null;
   const wanted = target.toLowerCase();
   for (const key of Object.keys(headers)) {
-    if ((key || "").toLowerCase() === wanted) {
+    if ((key || '').toLowerCase() === wanted) {
       const value = headers[key];
       if (Array.isArray(value)) {
         return value.length > 0 ? String(value[0]) : null;

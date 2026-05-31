@@ -7,7 +7,7 @@
  * 参数说明（可选）：
  *  - notify=on/off：是否发送通知（默认 on）
  *  - clipboard=on/off：通知时是否复制 Cookie（默认 on）
- *  - openUrl / mediaUrl / delayMs：透传给通知参数
+ *  - openUrl / mediaUrl / delayMs：透传给通知参数 * @license MIT
  */
 (function () {
   try {

@@ -7,7 +7,7 @@
  * 参数说明（可选）：
  *  - notify=on/off：是否发送通知（默认 on）
  *  - clipboard=on/off：通知时是否复制内容到剪贴板（默认 on）
- *  - mediaUrl/openUrl/delayMs：透传给 $notification.post
+ *  - mediaUrl/openUrl/delayMs：透传给 $notification.post * @license MIT
  */
 (function () {
   try {

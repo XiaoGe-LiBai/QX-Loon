@@ -1,30 +1,28 @@
 /**
- * Loon http-request script
- * 场景：快手极速版任务接口，请求头包含拆分 Cookie 字段
- * 匹配：^https?:\/\/nebula\.kuaishou\.com\/rest\/n\/nebula\/activity\/earn\/overview\/tasks
- * 功能：聚合 Cookie 并输出，不进行持久化存储
- * 输出格式：ksjsb cookie=cookie值
- * 参数说明（可选）：
- *  - notify=on/off：是否发送通知（默认 on）
- *  - clipboard=on/off：通知时是否复制 Cookie（默认 on）
- *  - openUrl / mediaUrl / delayMs：透传给通知参数
+ * 快手极速版任务接口 - 提取 Cookie
+ * 功能：从请求头聚合拆分 Cookie 并推送通知
+ * @author XiaoGe-LiBai
+ * @date 2026-05-31
  */
+
+const scriptName = '快手极速版';
+
 (function () {
+  const args = parseArgs(typeof $argument === 'string' ? $argument : '');
+  const notify = (args.notify || 'on').toLowerCase() === 'on';
+  const clipboard = (args.clipboard || 'on').toLowerCase() !== 'off';
+
   try {
     if (!$request) {
-      throw new Error("未获取到请求对象");
+      throw new Error('未获取到请求对象');
     }
 
     const headers = $request.headers || {};
-    const args = parseArgs(typeof $argument === "string" ? $argument : "");
-
-    const notify = (args.notify || "on").toLowerCase() === "on";
-    const clipboard = (args.clipboard || "on").toLowerCase() !== "off";
-
     const cookieSegments = collectCookieSegments(headers);
+
     if (cookieSegments.length === 0) {
       if (notify) {
-        $notification.post("快手极速版 Cookie 获取失败", "", "请求中未找到 Cookie 字段");
+        $notification.post(`${scriptName} Cookie 获取失败`, '', '请求中未找到 Cookie 字段');
       }
       return $done({});
     }
@@ -32,28 +30,25 @@
     const cookieString = formatCookieString(cookieSegments);
     if (!cookieString) {
       if (notify) {
-        $notification.post("快手极速版 Cookie 获取失败", "", "Cookie 字段内容为空");
+        $notification.post(`${scriptName} Cookie 获取失败`, '', 'Cookie 字段内容为空');
       }
       return $done({});
     }
 
-    // 输出格式：快手极速版cookie: cookie值
-    const output = `快手极速版cookie: ${cookieString}`;
+    const output = `${scriptName}cookie: ${cookieString}`;
     console.log(output);
-    console.log("📋 提示：点击弹窗通知即可自动复制完整内容到剪贴板");
 
     // 通知防抖：10秒内重复触发不通知
     const now = Date.now();
-    const lastNotifyKey = "ksjsb_cookie_last_notify";
-    const lastNotifyTime = parseInt($persistentStore.read(lastNotifyKey) || "0");
-    const cooldownMs = 10000; // 10秒冷却时间
-    const shouldNotify = notify && (now - lastNotifyTime >= cooldownMs);
+    const lastNotifyKey = 'ksjsb_cookie_last_notify';
+    const lastNotifyTime = parseInt($persistentStore.read(lastNotifyKey) || '0');
+    const cooldownMs = 10000;
 
-    if (shouldNotify) {
+    if (notify && (now - lastNotifyTime >= cooldownMs)) {
       $persistentStore.write(String(now), lastNotifyKey);
 
-      const title = "快手极速版 Cookie 已抓取";
-      const subtitle = "👆 点击此通知自动复制";
+      const title = `${scriptName} Cookie 已抓取`;
+      const subtitle = '👆 点击此通知自动复制';
       const preview = cookieString.length > 96 ? `${cookieString.slice(0, 96)}…` : cookieString;
 
       const attachPayload = {};
@@ -74,35 +69,38 @@
         hasAttach = true;
       }
 
-      const delayValue = Number(args.delayMs || args.delay || 0);
-      const delayMs = Number.isFinite(delayValue) ? delayValue : 0;
+      const delayMs = Math.max(0, Number(args.delayMs || args.delay || 0)) || 0;
 
       $notification.post(
         title,
         subtitle,
         preview,
         hasAttach ? attachPayload : undefined,
-        delayMs > 0 ? delayMs : 0
+        delayMs
       );
     } else if (notify) {
-      console.log("⏱️ 通知已被限流（10秒内重复触发），完整内容已输出到控制台");
+      console.log(`[${scriptName}] ⏱️ 通知已限流（10秒内重复触发）`);
     }
 
     $done({});
   } catch (err) {
-    $notification.post("快手极速版 Cookie 获取异常", "", String((err && err.stack) || err));
+    const errorMsg = String((err && err.stack) || err);
+    console.log(`[${scriptName}] ❌ Cookie 脚本异常: ${errorMsg}`);
+    if (notify) {
+      $notification.post(`${scriptName} Cookie 脚本异常`, '', errorMsg);
+    }
     $done({});
   }
 })();
 
 function parseArgs(str) {
   if (!str) return {};
-  return str.split("&").reduce((acc, cur) => {
+  return str.split('&').reduce((acc, cur) => {
     if (!cur) return acc;
-    const idx = cur.indexOf("=");
+    const idx = cur.indexOf('=');
     const key = (idx >= 0 ? cur.slice(0, idx) : cur).trim();
-    const val = idx >= 0 ? cur.slice(idx + 1) : "";
-    acc[key] = decodeURIComponent(val || "");
+    const val = idx >= 0 ? cur.slice(idx + 1) : '';
+    acc[key] = decodeURIComponent(val || '');
     return acc;
   }, {});
 }
@@ -116,7 +114,7 @@ function collectCookieSegments(headers) {
     addSegmentIfCookie(key, headers[key], segments);
   });
 
-  ["Cookie", "cookie"].forEach(key => {
+  ['Cookie', 'cookie'].forEach(key => {
     if (!handledKeys.has(key) && headers && headers[key] != null) {
       addSegmentIfCookie(key, headers[key], segments);
     }
@@ -128,7 +126,7 @@ function collectCookieSegments(headers) {
 function addSegmentIfCookie(key, value, collector) {
   if (!key) return;
   const lower = key.toLowerCase();
-  if (lower === "cookie" || lower.startsWith("cookie#")) {
+  if (lower === 'cookie' || lower.startsWith('cookie#')) {
     if (Array.isArray(value)) {
       value.forEach(v => addSegmentIfCookie(key, v, collector));
     } else if (value != null) {
@@ -149,14 +147,14 @@ function formatCookieString(values) {
       });
   });
 
-  if (pieces.length === 0) return "";
+  if (pieces.length === 0) return '';
 
   const orderedKeys = [];
   const kv = Object.create(null);
   const flagItems = [];
 
   pieces.forEach(part => {
-    const eqIdx = part.indexOf("=");
+    const eqIdx = part.indexOf('=');
     if (eqIdx > 0) {
       const key = part.slice(0, eqIdx).trim();
       const val = part.slice(eqIdx + 1).trim();
@@ -167,20 +165,16 @@ function formatCookieString(values) {
     }
   });
 
-  // 定义优先级参数列表，这些参数会排在前面
-  const priorityKeys = ["__NSWJ"];
-
-  // 将键按优先级排序
+  // 优先排列 __NSWJ 参数
+  const priorityKeys = ['__NSWJ'];
   const sortedKeys = [];
 
-  // 首先添加优先级参数（按定义顺序）
   priorityKeys.forEach(priorityKey => {
     if (orderedKeys.includes(priorityKey)) {
       sortedKeys.push(priorityKey);
     }
   });
 
-  // 然后添加其他参数（保持原有顺序）
   orderedKeys.forEach(key => {
     if (!priorityKeys.includes(key)) {
       sortedKeys.push(key);
@@ -195,6 +189,5 @@ function formatCookieString(values) {
     result.push(item);
   });
 
-  return result.join("; ");
+  return result.join('; ');
 }
-
