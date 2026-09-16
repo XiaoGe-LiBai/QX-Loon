@@ -1,22 +1,25 @@
 /**
  * Loon http-request script: 京东凭据提取 → Bncr 静默同步
  *
- * 抓取来源（两条规则，内容自动识别，无需区分）：
- *   ^https?:\/\/api\.m\.jd\.com\/   → pt_key + pt_pin（basicConfig 等接口 Cookie 头）
- *   ^https?:\/\/sh\.jd\.com\/d      → wskey（登录票据，可能不含 pin）
+ * 抓取来源（两条规则，内容自动识别，无需区分域名）：
+ *   api.m.jd.com  → pt_key + pt_pin（basicConfig 等接口）
+ *   sh.jd.com/d   → wskey（登录票据，可能不含 pin）
  *
- * 片段拼装：
- *   pin 与 wskey 常出现在不同请求里。脚本把 pin 记忆到本地（12 小时有效），
- *   遇到只有 wskey 的请求时自动回填，拼成 pin=xxx;wskey=xxx; 再上报。
+ * 关键：JD App 在 HTTP/2 下会把 Cookie 拆成十几个同名 cookie 头
+ * （实测 api.m.jd.com 一次请求 19 个，pt_key 排在第 15 个）。
+ * 代理合并同名头时，分隔符可能是 "; " / ", " / 换行，
+ * 因此解析层必须对分隔符不敏感，否则 pt_key 直接抓不到。
  *
- * 去重（关键，避免弹窗/请求风暴）：
- *   以 pin 为维度记录「最近一次上报成功的凭据指纹」。
- *   凭据没变 → 本地直接放行，0 弹窗、0 外发、0 延迟。
- *   只有首次捕获或凭据刷新时才上报；上报失败不写指纹，下一次请求自然重试（无需重试循环）。
+ * 片段拼装：pin 与 wskey 常分属不同请求，脚本把 pin 记忆到本地（12 小时有效），
+ * 遇到只有 wskey 的请求时自动回填。
+ *
+ * 去重：pt_key 与 wskey 各自记「最近一次成功上报」的值。凭据未变 → 直接放行。
+ * 必须分开记 —— 合并成单个指纹会让两者互相覆盖，导致重复上报。
  *
  * 参数（argument）：
- *   silent=true/false  默认 true 完全静默；false 时仅在凭据变更并上报成功时弹窗 1 次
+ *   silent=true/false  默认 true；false 时仅在凭据变更并上报成功时弹窗 1 次
  *   upload=on/off      默认 on
+ *   debug=on/off       默认 off；on 时每次命中都打日志（排查用）
  *
  * @author XiaoGe-LiBai
  * @license MIT
@@ -25,10 +28,13 @@
 const BNCR_ENDPOINT = "https://bncr.xiaoge.ink/api/Doraemon/loginCallback_receive";
 const BNCR_AUTH_TOKEN = "96358b36fc0769de2c8373d5e3582bb9";
 
-const PIN_TTL_MS = 12 * 60 * 60 * 1000; // pin 记忆有效期
-const STORE_PIN = "jd_loon_pin";        // {pin, raw, ts}
+const PIN_TTL_MS = 12 * 60 * 60 * 1000;      // pin 记忆有效期
+const HIT_LOG_INTERVAL_MS = 10 * 1000;       // 无凭据时的命中日志限流间隔
+
+const STORE_PIN = "jd_loon_pin";             // {pin, raw, ts}
 const STORE_PTKEY_PREFIX = "jd_loon_ptkey_"; // 每账号最近一次成功上报的 pt_key
 const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上报的 wskey
+const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 
 (function () {
   try {
@@ -40,35 +46,40 @@ const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上�
     const args = parseArgs(typeof $argument === "string" ? $argument : "");
     const isSilent = (args.silent || "true").toLowerCase() !== "false";
     const isUploadEnabled = (args.upload || "on").toLowerCase() !== "off";
+    const isDebug = (args.debug || "off").toLowerCase() === "on";
 
-    // 1. 聚合 Cookie（兼容 HTTP/2 拆分成多个 cookie 头）
+    const host = hostOf($request.url);
+    const cookieHeaders = cookieHeaderCount(headers);
     const cookie = collectCookie(headers);
+
     if (!cookie) {
+      hitLog(isDebug, `${host} | 无 Cookie 头(共 ${cookieHeaders} 个) → 放行`);
       return $done({});
     }
 
-    // 2. 提取片段
     const ptKey = pick(cookie, "pt_key");
     const wskey = pick(cookie, "wskey");
     const rawPin = pick(cookie, "pt_pin") || pick(cookie, "pin") || pick(cookie, "pwdt_id");
 
-    // 3. pin 记忆：命中即刷新，未命中则回填最近一次（供 sh.jd.com 这类无 pin 请求配对）
+    if (isDebug) {
+      console.log(`[京东凭据] 命中 ${host} | cookie头 ${cookieHeaders} 个 | pt_key ${yn(ptKey)} pt_pin ${yn(rawPin)} wskey ${yn(wskey)}`);
+    }
+
+    // pin 记忆：命中即刷新，未命中则回填最近一次（供 sh.jd.com 这类无 pin 的请求配对）
     let pin = rawPin ? decodePin(rawPin) : "";
     if (pin) {
       $persistentStore.write(JSON.stringify({ pin: pin, raw: rawPin, ts: Date.now() }), STORE_PIN);
-    } else {
-      const recalled = recallPin();
-      pin = recalled.pin;
-      if (recalled.raw) {
-        // 回填时保留原始的 pt_pin 写法，用于 pt_key 形态
-        return handle(pin, recalled.raw, ptKey, wskey, { isSilent, isUploadEnabled });
-      }
-    }
-    if (!pin) {
-      return $done({});
+      return handle(pin, rawPin, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders });
     }
 
-    return handle(pin, rawPin, ptKey, wskey, { isSilent, isUploadEnabled });
+    const recalled = recallPin();
+    if (recalled.pin) {
+      hitLog(isDebug, `${host} | pt_pin 缺失，回填记忆 pin ${recalled.pin}`);
+      return handle(recalled.pin, recalled.raw, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders });
+    }
+
+    hitLog(isDebug, `${host} | 未找到 pin（cookie 头 ${cookieHeaders} 个）→ 放行`);
+    return $done({});
 
   } catch (err) {
     console.log(`❌ [京东凭据] 脚本异常: ${(err && err.message) || err}`);
@@ -80,17 +91,17 @@ const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上�
  * 组装并上报
  */
 function handle(pin, rawPin, ptKey, wskey, opts) {
-  // 没有任何凭据片段则放行
   if (!ptKey && !wskey) {
+    hitLog(false, `${opts.host} | pin ${pin} 但无 pt_key/wskey → 放行`);
     return $done({});
   }
 
-  // 4. 组装最终凭据：优先 pt_key 形态（登录.js 可直接使用），退回 wskey 形态
+  // 优先 pt_key 形态（登录插件可直接使用），退回 wskey 形态
   const fullCk = ptKey
     ? `pt_key=${ptKey}; pt_pin=${rawPin || pin};`
     : `pin=${encodeURIComponent(pin)};wskey=${wskey};`;
 
-  // 5. 去重：pt_key 与 wskey 各自独立记指纹，避免互相覆盖导致重复上报
+  // 去重：两类凭据各自独立记，避免互相覆盖
   const ptKeyStore = STORE_PTKEY_PREFIX + pin;
   const wskeyStore = STORE_WSKEY_PREFIX + pin;
 
@@ -98,13 +109,12 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
   const wskeyChanged = Boolean(wskey && wskey !== ($persistentStore.read(wskeyStore) || ""));
 
   if (!ptKeyChanged && !wskeyChanged) {
-    // 凭据未变：本地直接放行，0 弹窗、0 外发、0 延迟
     return $done({});
   }
 
   const changed = [];
-  if (ptKey) changed.push("pt_key");
-  if (wskey) changed.push("wskey");
+  if (ptKeyChanged) changed.push("pt_key");
+  if (wskeyChanged) changed.push("wskey");
 
   console.log("================== [京东凭据捕获] ==================");
   console.log(`账号 PIN : ${pin}`);
@@ -119,7 +129,6 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
     return $done({});
   }
 
-  // 6. 静默外发
   const payload = {
     wskey: wskey || "",
     pin: pin,
@@ -145,7 +154,7 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
     function (error, response, data) {
       try {
         if (error) {
-          console.log(`❌ 上报失败(网络): ${error} — 未写入指纹，下次请求自动重试`);
+          console.log(`❌ 上报失败(网络): ${error} — 未写入记录，下次请求自动重试`);
         } else {
           const status = response ? (response.status || response.statusCode) : 0;
           let res = {};
@@ -156,7 +165,6 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
           }
 
           if (status === 200 && (res.code === 0 || res.code === 200)) {
-            // 上报成功才记指纹（按类型分开记，失败则下次请求自然重试）
             if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
             if (wskey) $persistentStore.write(wskey, wskeyStore);
             console.log(`✅ 上报成功: ${res.msg || "ok"} (${res.triggered || "-"})`);
@@ -170,7 +178,7 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
               );
             }
           } else {
-            console.log(`❌ 上报失败: HTTP ${status} ${data} — 未写入指纹，下次请求自动重试`);
+            console.log(`❌ 上报失败: HTTP ${status} ${data} — 未写入记录，下次请求自动重试`);
           }
         }
       } catch (cbErr) {
@@ -180,6 +188,82 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
       }
     }
   );
+}
+
+/**
+ * 命中日志：默认限流（10 秒最多 1 条），debug=on 时每次都打
+ */
+function hitLog(isDebug, message) {
+  if (isDebug) {
+    console.log(`[京东凭据] ${message}`);
+    return;
+  }
+  const now = Date.now();
+  const last = Number($persistentStore.read(STORE_HIT_TS) || 0);
+  if (now - last < HIT_LOG_INTERVAL_MS) return;
+  $persistentStore.write(String(now), STORE_HIT_TS);
+  console.log(`[京东凭据] ${message}`);
+}
+
+/**
+ * 聚合所有 cookie 头
+ * 兼容三种形态：数组值 / cookie#N 分片键 / 单键内含 ", " 或换行拼接的多段 Cookie
+ */
+function collectCookie(headers) {
+  if (!headers || typeof headers !== "object") return "";
+
+  const raw = [];
+  Object.keys(headers).forEach(function (name) {
+    if (String(name).toLowerCase().indexOf("cookie") !== 0) return;
+    const value = headers[name];
+    if (Array.isArray(value)) {
+      value.forEach(function (v) {
+        if (v) raw.push(String(v));
+      });
+    } else if (value) {
+      raw.push(String(value));
+    }
+  });
+
+  // 换行、回车统一成 "; "，再交给 pick 做分隔符无关的解析
+  return raw.join("; ").replace(/[\r\n]+/g, "; ").trim();
+}
+
+/**
+ * 取 cookie 字段值
+ * 分隔符对 ", " / "; " / 换行都兼容（代理合并同名头的方式不确定）
+ */
+function pick(cookie, name) {
+  const re = new RegExp("(?:^|[;,])\\s*" + name + "=([^;,]+)");
+  const m = String(cookie).match(re);
+  return m ? m[1].trim() : "";
+}
+
+/**
+ * cookie 头个数（用于诊断）
+ */
+function cookieHeaderCount(headers) {
+  if (!headers || typeof headers !== "object") return 0;
+  let n = 0;
+  Object.keys(headers).forEach(function (name) {
+    if (String(name).toLowerCase().indexOf("cookie") === 0) n++;
+  });
+  return n;
+}
+
+/**
+ * 从 URL 取主机名（用于日志）
+ */
+function hostOf(url) {
+  const m = String(url || "").match(/^https?:\/\/([^\/]+)/i);
+  return m ? m[1] : "(未知)";
+}
+
+/**
+ * yes/no 标记
+ */
+function yn(value) {
+  return value ? "✓" : "✗";
 }
 
 /**
@@ -206,36 +290,6 @@ function decodePin(value) {
   } catch (e) {
     return value;
   }
-}
-
-/**
- * 聚合所有 cookie 头（兼容 HTTP/2 分片与数组形式）
- */
-function collectCookie(headers) {
-  if (!headers || typeof headers !== "object") return "";
-  const parts = [];
-  Object.keys(headers).forEach(function (name) {
-    const lower = name.toLowerCase();
-    if (lower === "cookie" || lower.indexOf("cookie#") === 0) {
-      const value = headers[name];
-      if (Array.isArray(value)) {
-        value.forEach(function (v) {
-          if (v) parts.push(String(v).trim());
-        });
-      } else if (value) {
-        parts.push(String(value).trim());
-      }
-    }
-  });
-  return parts.filter(Boolean).join("; ");
-}
-
-/**
- * 取 cookie 字段值
- */
-function pick(cookie, name) {
-  const m = String(cookie).match(new RegExp("(?:^|;\\s*)" + name + "=([^;]+)"));
-  return m ? m[1].trim() : "";
 }
 
 /**

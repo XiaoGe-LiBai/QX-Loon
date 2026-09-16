@@ -14,8 +14,8 @@
 ## 抓取规则
 
 ```
-http-request ^https:\/\/api\.m\.jd\.com\/ script-path=.../Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-pin
-http-request ^https:\/\/sh\.jd\.com\/d script-path=.../Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-wskey
+http-request ^https?:\/\/api\.m\.jd\.com\/ script-path=.../Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-pin
+http-request ^https?:\/\/sh\.jd\.com\/d script-path=.../Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-wskey
 
 [MITM]
 hostname = api.m.jd.com, sh.jd.com
@@ -30,12 +30,47 @@ hostname = api.m.jd.com, sh.jd.com
 
 ## 关键行为
 
-1. **跨请求拼装**：`pin` 与 `wskey` 常分属不同请求。脚本把 `pin` 记忆到本地（12 小时有效），遇到只有 `wskey` 的请求时自动回填，拼成 `pin=xxx;wskey=xxx;`。
-2. **按类型独立去重**：`pt_key` 与 `wskey` 各自记录最近一次**上报成功**的值。凭据未变 → 直接放行，0 弹窗、0 外发、0 延迟。
-3. **失败自愈**：上报失败不写记录，下一次请求自然重试（不写重试循环）。
-4. **动态 UA**：复用京东 App 原始请求的 User-Agent，兜底标准 iOS Safari UA。
+1. **分隔符无关的 Cookie 解析** —— 见下方「踩坑记录」，这是最容易静默失效的一环。
+2. **跨请求拼装**：`pin` 与 `wskey` 常分属不同请求。脚本把 `pin` 记忆到本地（12 小时有效），遇到只有 `wskey` 的请求时自动回填。
+3. **按类型独立去重**：`pt_key` 与 `wskey` 各自记录最近一次**上报成功**的值。凭据未变 → 直接放行，0 弹窗、0 外发、0 延迟。
+4. **失败自愈**：上报失败不写记录，下一次请求自然重试（不写重试循环）。
+5. **动态 UA**：复用京东 App 原始请求的 User-Agent，兜底标准 iOS Safari UA。
 
-> 注：`pt_key` 与 `wskey` 必须**分开**记指纹。若合并成单个指纹串，两者会互相覆盖，导致 iOS 上换个页面就重复上报（已踩过这个坑）。
+## 踩坑记录
+
+### 1. Cookie 分隔符（曾导致完全不上传）
+
+JD App 在 HTTP/2 下把 Cookie 拆成**十几个同名 cookie 头**。实测 `api.m.jd.com` 一次请求 19 个，`pt_key` 排在第 **15** 个，不是第一个：
+
+```
+cookie: sdtoken=...            ← 第 1 个
+cookie: __jda=...
+...
+cookie: pt_key=app_open...     ← 第 15 个
+cookie: pt_pin=jd_4f5ff4a37c697
+```
+
+代理合并同名头时，分隔符可能是 `; ` / `, `（RFC 7230 §3.2.2）/ 换行。若正则写死 `(?:^|;\s*)pt_key=`，则**只有 `; ` 能命中**，其余全部抓不到 → `pin` 也抓不到 → 脚本静默退出，零日志、零上传。
+
+现在解析层对三种分隔符都不敏感，并且 5 种 header 形态（数组值 / `cookie#N` 分片键 / `;` / `,` / 换行）都有回归测试覆盖。
+
+### 2. 指纹不能合并
+
+`pt_key` 与 `wskey` 必须**分开**记去重指纹。合并成单个指纹串时两者会互相覆盖（先存 `KEY_A|`，再被 `|WSKEY_B` 覆盖，回头 `KEY_A|` 又被判为"变更"），表现为换个页面就重复上报。
+
+### 3. 规则里不要写 `argument=`
+
+`[Argument]` 声明后 `$argument` 是**对象**（`$argument.name`），且 `switch` 控件默认值是 `false` —— 若把 `upload` 做成 switch，默认就会关掉上报。因此规则不写 `argument=`，行为由脚本内默认值决定（`silent=true` / `upload=on` / `debug=off`）。需要临时排查时再手动加。
+
+## 排查手法
+
+脚本默认**限流打日志**（10 秒最多 1 条），所以在 Loon 脚本日志里：
+
+- **完全没有任何输出** → 脚本没跑起来，问题在 MITM / 规则匹配 / 远程脚本拉取，不在脚本本身。
+- **有 `[京东凭据] 命中 ...` 但显示 `pt_key ✗`** → 命中了，但 Cookie 里没有凭据（该请求本来就不带 CK），或分隔符形态又变了。
+- **有 `==== [京东凭据捕获] ====`** → 抓到凭据并已外发，紧跟着会打印上报结果。
+
+需要每次命中都看细节时，把 `argument=[debug=on]` 手动加到规则末尾。
 
 ## 上报接口
 
@@ -57,10 +92,3 @@ hostname = api.m.jd.com, sh.jd.com
 - `full_ck` 为 `pin=...;wskey=...;` → `triggered: inline`，归一化为 `wskey=...;pin=...;`
 
 脚本优先发 `pt_key` 形态（登录插件可直接使用），无 `pt_key` 时退回 `wskey` 形态。
-
-## 参数
-
-| 参数 | 默认 | 说明 |
-|---|---|---|
-| `silent` | `true` | `true` 完全静默；`false` 仅在凭据变更并上报成功时弹窗 1 次（点击复制凭据） |
-| `upload` | `on` | `off` 时只记录、不外发 |
