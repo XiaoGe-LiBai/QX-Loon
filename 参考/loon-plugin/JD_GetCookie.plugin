@@ -1,13 +1,14 @@
 #!name = 京东Cookie/wskey提取与Bncr同步
 #!author = XiaoGe-LiBai
-#!desc = 自动捕获京东账号凭据 (pt_key+pt_pin 与 wskey+pin)，支持跨请求记忆 Pin 匹配，并在首次捕获或凭据更新时自动同步至 Bncr 对接服务器 (bncr.xiaoge.ink)。采用凭据指纹去重，凭据未变时永远 0 弹窗、0 外发。
+#!desc = 双规则抓取京东凭据：api.m.jd.com 取 pt_key/pt_pin，sh.jd.com/d 取 wskey；跨请求自动拼装 pin 与 wskey，凭据首次捕获或刷新时静默同步至 bncr.xiaoge.ink。凭据未变时 0 弹窗、0 外发。
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Photos/jd.png
 #!openUrl = https://apps.apple.com/cn/app/id414245413
 #!tag = 京东,抓包,wskey,Bncr,自动化
 #!date = 2026-09-15
 
 [Script]
-http-request ^https?:\/\/api\.m\.jd\.com\/(client\.action|api) script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, requires-body=false, timeout=10, tag=京东Cookie提取, argument=[silent=true&upload=on]
+http-request ^https:\/\/api\.m\.jd\.com\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-pin
+http-request ^https:\/\/sh\.jd\.com\/d script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-wskey
 
 [MITM]
-hostname = api.m.jd.com
+hostname = api.m.jd.com, sh.jd.com
