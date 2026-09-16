@@ -11,6 +11,7 @@
 ### Loon 插件
 通过 MITM 代理拦截 HTTP 请求/响应，实现数据抓取和响应修改：
 - **快手极速版/普通版**: salt、cookie、UA、kaw 参数抓取
+- **京东 Cookie/wskey**: 抓取 pt_key/pt_pin 与 wskey，静默同步至 Bncr 无界
 - **京东金融**: 积分商城状态修改
 - **达美乐**: Token 抓取
 - **小米汽车**: 活动详情按钮解锁
@@ -34,6 +35,9 @@ https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/ks.plugin
 
 # 达美乐Token
 https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/dml_token.plugin
+
+# 京东Cookie/wskey提取（静默同步 Bncr）
+https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/JD_GetCookie.plugin
 ```
 
 ### Reqable 脚本使用
