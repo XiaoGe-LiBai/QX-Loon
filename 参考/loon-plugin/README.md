@@ -18,6 +18,10 @@
 # 见下方「为什么不走代理」——这一条是上报能否成功的关键
 DOMAIN-SUFFIX,xiaoge.ink,DIRECT
 
+[Host]
+# 该域名实测只有 IPv6 可达，给这一个域名单独指定地址族（不动全局 ip-mode）
+bncr.xiaoge.ink = ip-mode:prefer-v6
+
 [Script]
 http-request ^https?:\/\/api\.m\.jd\.com\/ script-path=.../Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-pin
 http-request ^https?:\/\/sh\.jd\.com\/d script-path=.../Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-wskey
@@ -36,7 +40,7 @@ hostname = api.m.jd.com, sh.jd.com
 ## 关键行为
 
 1. **上报成功即弹窗，点击通知复制凭据**。同一凭据只弹一次（按类型独立去重），不刷屏。
-2. **上报强制直连**：脚本用 `$httpClient` 的 `node` 参数指定出口（默认 `DIRECT`），不依赖 `[Rule]` 是否生效、也不受其他规则优先级影响。失败会自动退回「当前路由」再试一次。见下方「为什么不走代理」。
+2. **上报强制直连 + IPv6 优先**：插件里 `[Rule]` 让该域名直连、`[Host]` 让它优先走 IPv6；脚本再用 `$httpClient` 的 `node` 参数指定出口（默认 `DIRECT`），不依赖 `[Rule]` 是否生效、也不受其他规则优先级影响。失败会自动退回「当前路由」再试一次。见下方「为什么不走代理」。
 3. **分隔符无关的 Cookie 解析** —— 见下方「踩坑记录」，这是最容易静默失效的一环。
 4. **跨请求拼装**：`pin` 与 `wskey` 常分属不同请求。脚本把 `pin` 记忆到本地（12 小时有效），遇到只有 `wskey` 的请求时自动回填。
 5. **按类型独立去重**：`pt_key` 与 `wskey` 各自记录最近一次**上报成功**的值。凭据未变 → 直接放行，0 弹窗、0 外发、0 延迟。
@@ -45,14 +49,14 @@ hostname = api.m.jd.com, sh.jd.com
 
 ## 为什么不走代理（关键坑）
 
-`bncr.xiaoge.ink` 同时挂着两条解析记录：
+`bncr.xiaoge.ink` 同时挂着两条解析记录，**实测只有 IPv6 那条能通**：
 
-| 类型 | 地址 | 归属 |
-|---|---|---|
-| A | `111.229.205.209` | 腾讯云（境内） |
-| AAAA | `2001:da8:230:1401:...` | **CERNET 教育网** |
+| 类型 | 地址 | 归属 | 实测 |
+|---|---|---|---|
+| A | `111.229.205.209` | 腾讯云（境内） | ❌ TLS 阶段即被 RST（`unexpected eof while reading`） |
+| AAAA | `2001:da8:230:1401:...` | CERNET 教育网 | ✅ HTTP/2 正常，返回 302 |
 
-走代理节点时，节点解析常优先取 **AAAA → 教育网 IPv6**，而境外/商用节点**路由不到教育网地址** → 连接被掐断。
+所以这个域名目前**只有 IPv6 可达**。走代理节点时，节点侧解析、以及节点到教育网 IPv6 的可达性都不可控 → 连接被掐断。
 
 **实测现象**（这个现象本身就是最好的判据）：
 
@@ -68,11 +72,31 @@ HTTPClient request failed with error:
 Error Domain=LNGCDAsyncSocketErrorDomain Code=7 "Socket closed by remote peer"
 ```
 
-## 双保险：`[Rule]` + `node` 参数
+> ⚠️ 「强制直连」只保证走 DIRECT 出口，**不决定用 A 还是 AAAA**。只加 `[Rule] ... DIRECT` 时，直连仍可能先试 IPv4 → 撞上那台 TLS 就被掐的机器。所以还需要下面的第三条保险。
 
-**保险一（插件层）**：`[Rule] DOMAIN-SUFFIX,xiaoge.ink,DIRECT` —— 让浏览器等所有流量都直连。
+## 三重保险：`[Rule]` + `[Host] ip-mode` + `node` 参数
 
-**保险二（脚本层）**：脚本给 `$httpClient` 显式指定出口：
+**保险一（插件层 · 选出口）**：`[Rule] DOMAIN-SUFFIX,xiaoge.ink,DIRECT` —— 让浏览器等所有流量都直连。
+
+**保险二（插件层 · 选地址族）**：`[Host]` 段给这一个域名单独指定 IPv6 优先：
+
+```ini
+[Host]
+bncr.xiaoge.ink = ip-mode:prefer-v6
+```
+
+Loon 的「规则」只决定走哪个策略，**不决定地址族**；`ip-mode` 才是决定 A / AAAA 的地方 —— 全局写在 `[General] ip-mode`，单域名写在 `[Host]`。这里只影响这一个域名，不动全局。
+
+> 取值拼写官方两处不一致，加完必须验证：
+>
+> | 来源 | 拼写 |
+> |---|---|
+> | `nsloon.app/docs/General`（文档页） | `ipv6-preferred` |
+> | 官方 `LoonExampleConfig/example2.lcf`（2026.09.11） | `prefer-v6` ← 插件里用的这个 |
+>
+> 验证：**Loon → 请求记录** 找 `bncr.xiaoge.ink`，看目标地址是否变成 `2001:da8:...` 开头。若仍是 `111.229.205.209`，把值换成 `ipv6-preferred` 再试；两个都无效则说明该值未被识别，改用下方备选。
+
+**保险三（脚本层）**：脚本给 `$httpClient` 显式指定出口：
 
 ```js
 { url: ..., node: "DIRECT" }   // node 参数：指定 DIRECT / 节点名 / 策略组
@@ -91,6 +115,17 @@ Error Domain=LNGCDAsyncSocketErrorDomain Code=7 "Socket closed by remote peer"
 出口可用 `argument` 调整：`node=DIRECT`（默认）／`node=日本`（节点名）／`node=auto`（走当前路由）。
 
 > 若以后把服务迁到代理节点能正常访问的机房，可改成 `node=auto` 并删掉那条 `[Rule]`。
+
+### 备选（若 `ip-mode` 两种拼写都无效）
+
+插件里改成把该域名映射到**另一个只有 A 记录的域名**，或直接钉死 IPv6 地址：
+
+```ini
+[Host]
+bncr.xiaoge.ink = 2001:da8:230:1401:60d8:9adc:139e:a0cc
+```
+
+副作用：地址是 EUI-64 形态，随网卡/前缀变化，**不推荐长期使用**。更干净的解法是去 DNS 侧把那条死掉的 A 记录删掉。
 
 ## 踩坑记录
 

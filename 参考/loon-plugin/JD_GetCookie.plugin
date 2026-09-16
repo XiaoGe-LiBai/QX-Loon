@@ -7,10 +7,16 @@
 #!date = 2026-09-16
 
 [Rule]
-# bncr.xiaoge.ink 同时有 A(腾讯云) 与 AAAA(CERNET 教育网) 记录。
-# 走代理时，节点解析常优先取 AAAA → 教育网 IPv6，境外节点路由不到 → 连接卡死，
-# 表现为「开 Loon 访问不到后台、脚本上报失败」。强制直连即可。
+# bncr.xiaoge.ink 同时有 A(腾讯云,实测 TLS 阶段即被 RST) 与 AAAA(CERNET 教育网,实测 302 正常)。
+# 强制直连，避免走代理节点。
 DOMAIN-SUFFIX,xiaoge.ink,DIRECT
+
+[Host]
+# 该域名实际只有 IPv6 可达，强制本域名用 IPv6 地址族（只影响这一个域名）。
+# 取值拼写官方两处不一致：文档页写 ipv6-preferred，官方 example2.lcf 写 prefer-v6。
+# 验证方法：Loon → 请求记录 里找 bncr.xiaoge.ink，看目标地址是否变成 2001:da8:... 开头。
+# 若仍是 111.229.205.209，把下面这行改成 bncr.xiaoge.ink = ip-mode:ipv6-preferred 再试。
+bncr.xiaoge.ink = ip-mode:prefer-v6
 
 [Script]
 http-request ^https?:\/\/api\.m\.jd\.com\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-pin
