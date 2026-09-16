@@ -36,6 +36,8 @@ const STORE_PTKEY_PREFIX = "jd_loon_ptkey_"; // 每账号最近一次成功上�
 const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上报的 wskey
 const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 
+const SCRIPT_VERSION = "2026-09-16.2";       // 改脚本时同步更新，日志会打印，便于确认线上跑的是哪一版
+
 (function () {
   try {
     if (!$request || $request.method === "OPTIONS") {
@@ -62,7 +64,7 @@ const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
     const rawPin = pick(cookie, "pt_pin") || pick(cookie, "pin") || pick(cookie, "pwdt_id");
 
     if (isDebug) {
-      console.log(`[京东凭据] 命中 ${host} | cookie头 ${cookieHeaders} 个 | pt_key ${yn(ptKey)} pt_pin ${yn(rawPin)} wskey ${yn(wskey)}`);
+      console.log(`[京东凭据 v${SCRIPT_VERSION}] 命中 ${host} | cookie头 ${cookieHeaders} 个 | pt_key ${yn(ptKey)} pt_pin ${yn(rawPin)} wskey ${yn(wskey)}`);
     }
 
     // pin 记忆：命中即刷新，未命中则回填最近一次（供 sh.jd.com 这类无 pin 的请求配对）
@@ -82,7 +84,7 @@ const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
     return $done({});
 
   } catch (err) {
-    console.log(`❌ [京东凭据] 脚本异常: ${(err && err.message) || err}`);
+    console.log(`❌ [京东凭据 v${SCRIPT_VERSION}] 脚本异常: ${(err && err.message) || err}`);
     $done({});
   }
 })();
@@ -116,11 +118,11 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
   if (ptKeyChanged) changed.push("pt_key");
   if (wskeyChanged) changed.push("wskey");
 
-  console.log("================== [京东凭据捕获] ==================");
+  console.log(`================== [京东凭据捕获 v${SCRIPT_VERSION}] ==================`);
   console.log(`账号 PIN : ${pin}`);
   console.log(`变更类型 : ${changed.join(" + ")}`);
   console.log(`凭据内容 : ${fullCk}`);
-  console.log("====================================================");
+  console.log("================================================================");
 
   if (!opts.isUploadEnabled) {
     if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
@@ -194,15 +196,16 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
  * 命中日志：默认限流（10 秒最多 1 条），debug=on 时每次都打
  */
 function hitLog(isDebug, message) {
+  const line = `[京东凭据 v${SCRIPT_VERSION}] ${message}`;
   if (isDebug) {
-    console.log(`[京东凭据] ${message}`);
+    console.log(line);
     return;
   }
   const now = Date.now();
   const last = Number($persistentStore.read(STORE_HIT_TS) || 0);
   if (now - last < HIT_LOG_INTERVAL_MS) return;
   $persistentStore.write(String(now), STORE_HIT_TS);
-  console.log(`[京东凭据] ${message}`);
+  console.log(line);
 }
 
 /**
