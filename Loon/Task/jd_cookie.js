@@ -37,7 +37,7 @@ const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上�
 const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 一次性诊断通知标记（按版本）
 
-const SCRIPT_VERSION = "2026-09-16.3";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.4";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
 
 (function () {
   try {
@@ -59,11 +59,12 @@ const SCRIPT_VERSION = "2026-09-16.3";       // 改脚本时同步更新，日�
     const wskey = pick(cookie, "wskey");
     const rawPin = pick(cookie, "pt_pin") || pick(cookie, "pin") || pick(cookie, "pwdt_id");
 
-    // 每个版本首次命中时弹一次诊断通知：用来确认「脚本到底跑没跑、看到了什么」
-    diagnoseOnce(host, cookieHeaders, cookie, ptKey, rawPin, wskey);
+    // 诊断上下文：凑齐后交给 handle，等上报出结果再一次性播报
+    const diag = { host, cookieHeaders, cookie, ptKey, rawPin, wskey };
 
     if (!cookie) {
       hitLog(isDebug, `${host} | 无 Cookie 头(共 ${cookieHeaders} 个) → 放行`);
+      diagnoseOnce(diag, null);
       return $done({});
     }
 
@@ -75,16 +76,17 @@ const SCRIPT_VERSION = "2026-09-16.3";       // 改脚本时同步更新，日�
     let pin = rawPin ? decodePin(rawPin) : "";
     if (pin) {
       $persistentStore.write(JSON.stringify({ pin: pin, raw: rawPin, ts: Date.now() }), STORE_PIN);
-      return handle(pin, rawPin, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders });
+      return handle(pin, rawPin, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders, diag });
     }
 
     const recalled = recallPin();
     if (recalled.pin) {
       hitLog(isDebug, `${host} | pt_pin 缺失，回填记忆 pin ${recalled.pin}`);
-      return handle(recalled.pin, recalled.raw, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders });
+      return handle(recalled.pin, recalled.raw, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders, diag });
     }
 
     hitLog(isDebug, `${host} | 未找到 pin（cookie 头 ${cookieHeaders} 个）→ 放行`);
+    diagnoseOnce(diag, null);
     return $done({});
 
   } catch (err) {
@@ -99,6 +101,7 @@ const SCRIPT_VERSION = "2026-09-16.3";       // 改脚本时同步更新，日�
 function handle(pin, rawPin, ptKey, wskey, opts) {
   if (!ptKey && !wskey) {
     hitLog(false, `${opts.host} | pin ${pin} 但无 pt_key/wskey → 放行`);
+    diagnoseOnce(opts.diag, null);
     return $done({});
   }
 
@@ -115,6 +118,7 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
   const wskeyChanged = Boolean(wskey && wskey !== ($persistentStore.read(wskeyStore) || ""));
 
   if (!ptKeyChanged && !wskeyChanged) {
+    diagnoseOnce(opts.diag, { kind: "skipped", reason: "凭据未变，已抑制重复上报" });
     return $done({});
   }
 
@@ -132,6 +136,7 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
     if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
     if (wskey) $persistentStore.write(wskey, wskeyStore);
     console.log("ℹ️ upload=off，已跳过外发");
+    diagnoseOnce(opts.diag, { kind: "skipped", reason: "upload=off，未外发" });
     return $done({});
   }
 
@@ -161,6 +166,7 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
       try {
         if (error) {
           console.log(`❌ 上报失败(网络): ${error} — 未写入记录，下次请求自动重试`);
+          diagnoseOnce(opts.diag, { ok: false, detail: `网络错误: ${error}` });
         } else {
           const status = response ? (response.status || response.statusCode) : 0;
           let res = {};
@@ -174,6 +180,7 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
             if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
             if (wskey) $persistentStore.write(wskey, wskeyStore);
             console.log(`✅ 上报成功: ${res.msg || "ok"} (${res.triggered || "-"})`);
+            diagnoseOnce(opts.diag, { ok: true, msg: `${res.msg || "ok"} (${res.triggered || "-"})` });
 
             if (!opts.isSilent) {
               $notification.post(
@@ -185,6 +192,7 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
             }
           } else {
             console.log(`❌ 上报失败: HTTP ${status} ${data} — 未写入记录，下次请求自动重试`);
+            diagnoseOnce(opts.diag, { ok: false, detail: describeFailure(status, data) });
           }
         }
       } catch (cbErr) {
@@ -197,29 +205,57 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
 }
 
 /**
- * 一次性诊断通知：每个脚本版本首次命中时弹一次
- * 作用是把「脚本有没有跑起来、请求里看到了什么」直接摆到通知栏，
- * 不必去翻 Loon 日志。通知里只列字段名，不泄露凭据内容。
+ * 把上报失败翻译成人话，重点识别「被运营商/网关劫持」这种情况：
+ * 请求打到了接口，回来的却是 HTML 备案页 / 登录页，而不是 JSON。
  */
-function diagnoseOnce(host, cookieHeaders, cookie, ptKey, rawPin, wskey) {
+function describeFailure(status, body) {
+  const text = String(body || "");
+  const snippet = text.replace(/\s+/g, " ").trim().slice(0, 90);
+  if (/<html|<!doctype|备案|beian|not found|nginx/i.test(text)) {
+    return `HTTP ${status}，返回的是 HTML 而非接口 JSON（疑似被运营商/网关劫持或走了错误线路）: ${snippet}`;
+  }
+  return `HTTP ${status}: ${snippet || "空响应"}`;
+}
+
+/**
+ * 一次性诊断通知：每个脚本版本首次「有结论」时弹一次
+ * 把「脚本跑没跑、看到了什么、上报成没成、服务器回了什么」全摆到通知栏，
+ * 不必翻 Loon 日志。通知里只列字段名，不泄露凭据值。
+ *
+ * outcome 取值：
+ *   null                              → 这条请求不带凭据（正常）
+ *   { kind:"skipped", reason }        → 凭据未变 / 未开启外发，主动跳过
+ *   { ok:true, msg }                  → 上报成功
+ *   { ok:false, detail }              → 上报失败（含被劫持识别）
+ */
+function diagnoseOnce(d, outcome) {
+  if (!d) return;
   const key = STORE_DIAG_PREFIX + SCRIPT_VERSION;
   if ($persistentStore.read(key)) return;
   $persistentStore.write("1", key);
 
-  const marks = `pt_key ${yn(ptKey)}  pt_pin ${yn(rawPin)}  wskey ${yn(wskey)}`;
-  const names = fieldNames(cookie, 4);
-  const fields = countFields(cookie);
+  const marks = `pt_key ${yn(d.ptKey)}  pt_pin ${yn(d.rawPin)}  wskey ${yn(d.wskey)}`;
+  const names = fieldNames(d.cookie, 4);
+  const fields = countFields(d.cookie);
   const detail = names ? `\n字段(${fields}): ${names}` : "\n(请求里没有 Cookie)";
 
-  let body;
-  if (ptKey || wskey) {
-    body = `${marks}${detail}\n已抓到凭据，正在上报…`;
+  let result;
+  if (!outcome) {
+    result = "这条请求不带 CK，属正常；继续用京东 App 即可";
+  } else if (outcome.kind === "skipped") {
+    result = outcome.reason || "已跳过上报";
+  } else if (outcome.ok) {
+    result = `✅ 上报成功：${outcome.msg}`;
   } else {
-    body = `${marks}${detail}\n这条请求本来就不带 CK，继续用京东 App 即可`;
+    result = `❌ 上报失败：${outcome.detail}`;
   }
 
   try {
-    $notification.post(`京东脚本已加载 v${SCRIPT_VERSION}`, `${host} | Cookie 键 ${cookieHeaders} 个`, body);
+    $notification.post(
+      `京东脚本诊断 v${SCRIPT_VERSION}`,
+      `${d.host} | Cookie 键 ${d.cookieHeaders} 个`,
+      `${marks}${detail}\n${result}`
+    );
   } catch (e) {
     // 通知失败不影响主流程
   }
