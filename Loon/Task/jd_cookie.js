@@ -13,18 +13,21 @@
  * 片段拼装：pin 与 wskey 常分属不同请求，脚本把 pin 记忆到本地（12 小时有效），
  * 遇到只有 wskey 的请求时自动回填。
  *
- * 去重：pt_key 与 wskey 各自记「最近一次成功上报」的值。凭据未变 → 直接放行。
+ * 去重：pt_key 与 wskey 各自记「最近一次受理的凭据」。凭据未变 → 直接放行。
  * 必须分开记 —— 合并成单个指纹会让两者互相覆盖，导致重复上报。
+ * 去重记录在【发起上报前的同步段】就写入（抢占式），不能等异步回调，
+ * 否则 JD App 并发打多个 basicConfig 时每个实例都会放行 → 重复外发 + 弹窗风暴。
+ * 上报失败会按值回滚，让下一个请求能自然重试。
  *
  * 通知：
- *   上报成功后弹窗 1 次，点击通知即把凭据复制到剪贴板。
- *   去重保证同一凭据只弹一次，不会刷屏。
- *   未抓到凭据 / 跳过 / 上报失败时，弹的是「诊断通知」（每版本一次），说明原因。
+ *   上报成功 → 弹窗 1 次，点击通知即把凭据复制到剪贴板。
+ *   上报失败 / upload=off → 弹「诊断通知」（每版本每账号至多 1 条）。
+ *   无 CK / 无 pin / 凭据未变 → 只写日志，不弹窗（这些是正常状态）。
  *
  * 网络前提：
- *   上报走 Loon 的 $httpClient，遵守分流规则。bncr.xiaoge.ink 同时有 A(腾讯云)
- *   与 AAAA(CERNET 教育网) 记录，代理节点通常路由不到教育网 IPv6 会导致连接卡死。
- *   插件的 [Rule] 已把该域名强制 DIRECT（见 JD_GetCookie.plugin）。
+ *   上报走 Loon 的 $httpClient，遵守分流规则。bncr.xiaoge.ink 的 A 记录
+ *   (腾讯云) 在 TLS 阶段即被 RST，只有 AAAA(CERNET 教育网) 可达，
+ *   故插件的 [Host] 已把该域名单独设为 IPv6 优先（见 JD_GetCookie.plugin）。
  *
  * 参数（argument）：
  *   silent=true/false  默认 false（成功即弹窗+点击复制）；true 则完全静默
@@ -43,12 +46,12 @@ const PIN_TTL_MS = 12 * 60 * 60 * 1000;      // pin 记忆有效期
 const HIT_LOG_INTERVAL_MS = 10 * 1000;       // 无凭据时的命中日志限流间隔
 
 const STORE_PIN = "jd_loon_pin";             // {pin, raw, ts}
-const STORE_PTKEY_PREFIX = "jd_loon_ptkey_"; // 每账号最近一次成功上报的 pt_key
-const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上报的 wskey
+const STORE_PTKEY_PREFIX = "jd_loon_ptkey_"; // 每账号最近一次已受理的 pt_key（失败会回滚）
+const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次已受理的 wskey（失败会回滚）
 const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
-const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 一次性诊断通知标记（按版本）
+const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 诊断通知标记（按版本+账号，失败类通知每人每版至多 1 条）
 
-const SCRIPT_VERSION = "2026-09-16.6";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.7";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
 
 (function () {
   try {
@@ -74,11 +77,10 @@ const SCRIPT_VERSION = "2026-09-16.6";       // 改脚本时同步更新，日�
     const rawPin = pick(cookie, "pt_pin") || pick(cookie, "pin") || pick(cookie, "pwdt_id");
 
     // 诊断上下文：凑齐后交给 handle，等上报出结果再一次性播报
-    const diag = { host, cookieHeaders, cookie, ptKey, rawPin, wskey };
+    const diag = { host, cookieHeaders, cookie, ptKey, rawPin, wskey, pin: "" };
 
     if (!cookie) {
       hitLog(isDebug, `${host} | 无 Cookie 头(共 ${cookieHeaders} 个) → 放行`);
-      diagnoseOnce(diag, null);
       return $done({});
     }
 
@@ -100,7 +102,6 @@ const SCRIPT_VERSION = "2026-09-16.6";       // 改脚本时同步更新，日�
     }
 
     hitLog(isDebug, `${host} | 未找到 pin（cookie 头 ${cookieHeaders} 个）→ 放行`);
-    diagnoseOnce(diag, null);
     return $done({});
 
   } catch (err) {
@@ -115,30 +116,43 @@ const SCRIPT_VERSION = "2026-09-16.6";       // 改脚本时同步更新，日�
 function handle(pin, rawPin, ptKey, wskey, opts) {
   if (!ptKey && !wskey) {
     hitLog(false, `${opts.host} | pin ${pin} 但无 pt_key/wskey → 放行`);
-    diagnoseOnce(opts.diag, null);
     return $done({});
   }
+
+  // 供诊断通知按账号记账
+  opts.diag.pin = pin;
 
   // 优先 pt_key 形态（登录插件可直接使用），退回 wskey 形态
   const fullCk = ptKey
     ? `pt_key=${ptKey}; pt_pin=${rawPin || pin};`
     : `pin=${encodeURIComponent(pin)};wskey=${wskey};`;
 
-  // 去重：两类凭据各自独立记，避免互相覆盖
+  // 去重（抢占式）：读-判-写必须全在【同步段】内完成，不能等异步回调。
+  // 失败教训：旧版把写入放在 $httpClient 回调里，中间隔着整个 HTTP 往返，
+  // JD App 启动时并发打多个 basicConfig，每个实例都在别人写入前读到「未变」
+  // → 5 个请求各外发一次、各弹一条窗。
   const ptKeyStore = STORE_PTKEY_PREFIX + pin;
   const wskeyStore = STORE_WSKEY_PREFIX + pin;
 
-  const ptKeyChanged = Boolean(ptKey && ptKey !== ($persistentStore.read(ptKeyStore) || ""));
-  const wskeyChanged = Boolean(wskey && wskey !== ($persistentStore.read(wskeyStore) || ""));
+  const prevPtKey = $persistentStore.read(ptKeyStore) || "";
+  const prevWskey = $persistentStore.read(wskeyStore) || "";
+
+  const ptKeyChanged = Boolean(ptKey && ptKey !== prevPtKey);
+  const wskeyChanged = Boolean(wskey && wskey !== prevWskey);
 
   if (!ptKeyChanged && !wskeyChanged) {
-    diagnoseOnce(opts.diag, { kind: "skipped", reason: "凭据未变，已抑制重复上报" });
+    hitLog(false, `${opts.host} | 凭据未变，已抑制重复上报`);
     return $done({});
   }
 
   const changed = [];
   if (ptKeyChanged) changed.push("pt_key");
   if (wskeyChanged) changed.push("wskey");
+
+  // 先记账再外发：并发实例随后读到的就是新值，直接放行。
+  // 上报失败时按值回滚（见 rollback），下一个请求能自然重试。
+  if (ptKeyChanged) $persistentStore.write(ptKey, ptKeyStore);
+  if (wskeyChanged) $persistentStore.write(wskey, wskeyStore);
 
   console.log(`================== [京东凭据捕获 v${SCRIPT_VERSION}] ==================`);
   console.log(`账号 PIN : ${pin}`);
@@ -147,10 +161,8 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
   console.log("================================================================");
 
   if (!opts.isUploadEnabled) {
-    if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
-    if (wskey) $persistentStore.write(wskey, wskeyStore);
     console.log("ℹ️ upload=off，已跳过外发");
-    diagnoseOnce(opts.diag, { kind: "skipped", reason: "upload=off，未外发" });
+    diagnoseOnce(opts.diag, { kind: "skipped", reason: "upload=off，未外发", notify: true });
     return $done({});
   }
 
@@ -172,8 +184,6 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
   sendUpload(route, payload, function (result, usedRoute) {
     try {
       if (result.ok) {
-        if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
-        if (wskey) $persistentStore.write(wskey, wskeyStore);
         console.log(`✅ 上报成功[${usedRoute}]: ${result.msg}`);
 
         if (!opts.isSilent) {
@@ -185,15 +195,27 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
           );
         }
       } else {
-        console.log(`❌ 上报失败: ${result.detail} — 未写入记录，下次请求自动重试`);
+        // 受理失败 → 回滚去重记录，让下一个请求能重试；
+        // 不回滚的话这次凭据会被永久判为「已上报」，再也不会重试。
+        rollback(ptKeyStore, ptKeyChanged, prevPtKey);
+        rollback(wskeyStore, wskeyChanged, prevWskey);
+        console.log(`❌ 上报失败: ${result.detail} — 已回滚去重记录，下次请求自动重试`);
+        diagnoseOnce(opts.diag, { ok: false, detail: result.detail, notify: true });
       }
-      diagnoseOnce(opts.diag, result.ok ? { ok: true, msg: result.msg } : { ok: false, detail: result.detail });
     } catch (cbErr) {
       console.log(`❌ 上报回调异常: ${(cbErr && cbErr.message) || cbErr}`);
     } finally {
       $done({});
     }
   });
+}
+
+/**
+ * 回滚去重记录：恢复为本轮之前的值；此前无记录（空串）则删除该键。
+ */
+function rollback(storeKey, changed, prevValue) {
+  if (!changed) return;
+  $persistentStore.write(prevValue ? prevValue : undefined, storeKey);
 }
 
 /**
@@ -264,21 +286,32 @@ function describeFailure(status, body) {
 }
 
 /**
- * 一次性诊断通知：每个脚本版本首次「有结论」时弹一次
- * 把「脚本跑没跑、看到了什么、上报成没成、服务器回了什么」全摆到通知栏，
- * 不必翻 Loon 日志。通知里只列字段名，不泄露凭据值。
+ * 通知策略：只对「需要用户行动」的结果弹窗，其余只写日志。
+ *
+ * 弹窗的场景只有两个：
+ *   1) 上报失败 —— 需要用户处理（换出口、查服务器）
+ *   2) 明确要求外发但被关闭 —— 配置可能不符预期
+ *
+ * 不弹窗的场景（只写日志，避免「一切正常却收到通知」）：
+ *   无 CK / 无 pin / 凭据未变 / 上报成功（成功由带复制的正式通知负责）
  *
  * outcome 取值：
- *   null                              → 这条请求不带凭据（正常）
- *   { kind:"skipped", reason }        → 凭据未变 / 未开启外发，主动跳过
- *   { ok:true, msg }                  → 上报成功
- *   { ok:false, detail }              → 上报失败（含被劫持识别）
+ *   null                              → 这条请求不带凭据（正常，不弹）
+ *   { kind:"skipped", reason, notify } → 主动跳过；notify=true 才弹
+ *   { ok:true, msg }                  → 上报成功（不弹，正式通知已发）
+ *   { ok:false, detail, notify }      → 上报失败（notify=true 才弹）
+ *
+ * 另有一道「每版本每账号最多一条」的总闸：即便并发实例同时失败，
+ * 也只弹一条，避免刷屏。
  */
 function diagnoseOnce(d, outcome) {
   if (!d) return;
-  // 上报成功由正式通知负责（带点击复制），这里只报「没抓到 / 跳过 / 失败」，避免同一件事弹两次
-  if (outcome && outcome.ok) return;
-  const key = STORE_DIAG_PREFIX + SCRIPT_VERSION;
+  if (!outcome) return;                 // 没抓到凭据属正常，不打扰
+  if (outcome.ok) return;               // 成功由正式通知负责
+  if (!outcome.notify) return;          // 非可行动状态，只写日志
+
+  // 按「版本 + pin」记账：同一账号在同一版本内只弹一条
+  const key = STORE_DIAG_PREFIX + SCRIPT_VERSION + "_" + (d.pin || "-");
   if ($persistentStore.read(key)) return;
   $persistentStore.write("1", key);
 
@@ -288,9 +321,7 @@ function diagnoseOnce(d, outcome) {
   const detail = names ? `\n字段(${fields}): ${names}` : "\n(请求里没有 Cookie)";
 
   let result;
-  if (!outcome) {
-    result = "这条请求不带 CK，属正常；继续用京东 App 即可";
-  } else if (outcome.kind === "skipped") {
+  if (outcome.kind === "skipped") {
     result = outcome.reason || "已跳过上报";
   } else {
     result = `❌ 上报失败：${outcome.detail}`;
