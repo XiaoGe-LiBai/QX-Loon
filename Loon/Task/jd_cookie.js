@@ -35,8 +35,9 @@ const STORE_PIN = "jd_loon_pin";             // {pin, raw, ts}
 const STORE_PTKEY_PREFIX = "jd_loon_ptkey_"; // 每账号最近一次成功上报的 pt_key
 const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上报的 wskey
 const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
+const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 一次性诊断通知标记（按版本）
 
-const SCRIPT_VERSION = "2026-09-16.2";       // 改脚本时同步更新，日志会打印，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.3";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
 
 (function () {
   try {
@@ -54,14 +55,17 @@ const SCRIPT_VERSION = "2026-09-16.2";       // 改脚本时同步更新，日�
     const cookieHeaders = cookieHeaderCount(headers);
     const cookie = collectCookie(headers);
 
+    const ptKey = pick(cookie, "pt_key");
+    const wskey = pick(cookie, "wskey");
+    const rawPin = pick(cookie, "pt_pin") || pick(cookie, "pin") || pick(cookie, "pwdt_id");
+
+    // 每个版本首次命中时弹一次诊断通知：用来确认「脚本到底跑没跑、看到了什么」
+    diagnoseOnce(host, cookieHeaders, cookie, ptKey, rawPin, wskey);
+
     if (!cookie) {
       hitLog(isDebug, `${host} | 无 Cookie 头(共 ${cookieHeaders} 个) → 放行`);
       return $done({});
     }
-
-    const ptKey = pick(cookie, "pt_key");
-    const wskey = pick(cookie, "wskey");
-    const rawPin = pick(cookie, "pt_pin") || pick(cookie, "pin") || pick(cookie, "pwdt_id");
 
     if (isDebug) {
       console.log(`[京东凭据 v${SCRIPT_VERSION}] 命中 ${host} | cookie头 ${cookieHeaders} 个 | pt_key ${yn(ptKey)} pt_pin ${yn(rawPin)} wskey ${yn(wskey)}`);
@@ -190,6 +194,63 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
       }
     }
   );
+}
+
+/**
+ * 一次性诊断通知：每个脚本版本首次命中时弹一次
+ * 作用是把「脚本有没有跑起来、请求里看到了什么」直接摆到通知栏，
+ * 不必去翻 Loon 日志。通知里只列字段名，不泄露凭据内容。
+ */
+function diagnoseOnce(host, cookieHeaders, cookie, ptKey, rawPin, wskey) {
+  const key = STORE_DIAG_PREFIX + SCRIPT_VERSION;
+  if ($persistentStore.read(key)) return;
+  $persistentStore.write("1", key);
+
+  const marks = `pt_key ${yn(ptKey)}  pt_pin ${yn(rawPin)}  wskey ${yn(wskey)}`;
+  const names = fieldNames(cookie, 4);
+  const fields = countFields(cookie);
+  const detail = names ? `\n字段(${fields}): ${names}` : "\n(请求里没有 Cookie)";
+
+  let body;
+  if (ptKey || wskey) {
+    body = `${marks}${detail}\n已抓到凭据，正在上报…`;
+  } else {
+    body = `${marks}${detail}\n这条请求本来就不带 CK，继续用京东 App 即可`;
+  }
+
+  try {
+    $notification.post(`京东脚本已加载 v${SCRIPT_VERSION}`, `${host} | Cookie 键 ${cookieHeaders} 个`, body);
+  } catch (e) {
+    // 通知失败不影响主流程
+  }
+}
+
+/**
+ * cookie 字段个数（按 ; , 换行切分后的段数）
+ * 这是判断「代理有没有把十几个同名 cookie 头都交给我们」的关键数字
+ */
+function countFields(cookie) {
+  return String(cookie || "")
+    .split(/[;,\r\n]+/)
+    .filter(function (seg) {
+      return seg.indexOf("=") > 0;
+    }).length;
+}
+
+/**
+ * 列出 cookie 里的前几个字段名（只取名字，不取value，用于诊断）
+ */
+function fieldNames(cookie, limit) {
+  const out = [];
+  String(cookie || "")
+    .split(/[;,\r\n]+/)
+    .forEach(function (seg) {
+      if (out.length >= limit) return;
+      const idx = seg.indexOf("=");
+      const name = (idx > 0 ? seg.slice(0, idx) : "").trim();
+      if (name && /^[\w.@-]+$/.test(name)) out.push(name);
+    });
+  return out.join(", ");
 }
 
 /**
