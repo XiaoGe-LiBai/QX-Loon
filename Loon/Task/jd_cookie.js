@@ -29,6 +29,7 @@
  * 参数（argument）：
  *   silent=true/false  默认 false（成功即弹窗+点击复制）；true 则完全静默
  *   upload=on/off      默认 on
+ *   node=DIRECT        上报出口，默认 DIRECT（可填节点名/策略组；填 auto 走当前路由）
  *   debug=on/off       默认 off；on 时每次命中都打日志（排查用）
  *
  * @author XiaoGe-LiBai
@@ -47,7 +48,7 @@ const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上�
 const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 一次性诊断通知标记（按版本）
 
-const SCRIPT_VERSION = "2026-09-16.5";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.6";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
 
 (function () {
   try {
@@ -61,6 +62,8 @@ const SCRIPT_VERSION = "2026-09-16.5";       // 改脚本时同步更新，日�
     const isSilent = (args.silent || "false").toLowerCase() === "true";
     const isUploadEnabled = (args.upload || "on").toLowerCase() !== "off";
     const isDebug = (args.debug || "off").toLowerCase() === "on";
+    // 上报出口：默认 DIRECT（bncr.xiaoge.ink 的 AAAA 指向教育网，走代理必连不通）
+    const node = args.node === undefined ? "DIRECT" : String(args.node).trim();
 
     const host = hostOf($request.url);
     const cookieHeaders = cookieHeaderCount(headers);
@@ -87,13 +90,13 @@ const SCRIPT_VERSION = "2026-09-16.5";       // 改脚本时同步更新，日�
     let pin = rawPin ? decodePin(rawPin) : "";
     if (pin) {
       $persistentStore.write(JSON.stringify({ pin: pin, raw: rawPin, ts: Date.now() }), STORE_PIN);
-      return handle(pin, rawPin, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders, diag });
+      return handle(pin, rawPin, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders, diag, node });
     }
 
     const recalled = recallPin();
     if (recalled.pin) {
       hitLog(isDebug, `${host} | pt_pin 缺失，回填记忆 pin ${recalled.pin}`);
-      return handle(recalled.pin, recalled.raw, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders, diag });
+      return handle(recalled.pin, recalled.raw, ptKey, wskey, { isSilent, isUploadEnabled, host, cookieHeaders, diag, node });
     }
 
     hitLog(isDebug, `${host} | 未找到 pin（cookie 头 ${cookieHeaders} 个）→ 放行`);
@@ -160,59 +163,91 @@ function handle(pin, rawPin, ptKey, wskey, opts) {
     callback_id: BNCR_AUTH_TOKEN
   };
 
-  console.log(`→ 上报 ${BNCR_ENDPOINT}`);
+  // 出口：默认强制 DIRECT。该域名 AAAA 指向教育网，走代理节点会连不通
+  // （手机侧表现为 Socket closed by remote peer）。
+  const route = String(opts.node || "DIRECT").trim();
 
-  $httpClient.post(
-    {
-      url: BNCR_ENDPOINT,
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "User-Agent": resolveUserAgent()
-      },
-      body: JSON.stringify(payload),
-      timeout: 10000
-    },
-    function (error, response, data) {
-      try {
-        if (error) {
-          console.log(`❌ 上报失败(网络): ${error} — 未写入记录，下次请求自动重试`);
-          diagnoseOnce(opts.diag, { ok: false, detail: `网络错误: ${error}` });
-        } else {
-          const status = response ? (response.status || response.statusCode) : 0;
-          let res = {};
-          try {
-            res = JSON.parse(data || "{}");
-          } catch (e) {
-            res = {};
-          }
+  console.log(`→ 上报 ${BNCR_ENDPOINT}（出口: ${route || "当前路由"}）`);
 
-          if (status === 200 && (res.code === 0 || res.code === 200)) {
-            if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
-            if (wskey) $persistentStore.write(wskey, wskeyStore);
-            console.log(`✅ 上报成功: ${res.msg || "ok"} (${res.triggered || "-"})`);
-            diagnoseOnce(opts.diag, { ok: true, msg: `${res.msg || "ok"} (${res.triggered || "-"})` });
+  sendUpload(route, payload, function (result, usedRoute) {
+    try {
+      if (result.ok) {
+        if (ptKey) $persistentStore.write(ptKey, ptKeyStore);
+        if (wskey) $persistentStore.write(wskey, wskeyStore);
+        console.log(`✅ 上报成功[${usedRoute}]: ${result.msg}`);
 
-            if (!opts.isSilent) {
-              $notification.post(
-                "🎉 京东凭据已同步",
-                `${pin} (${changed.join("+")})`,
-                "已发送至对接服务器，点击可复制",
-                { clipboard: fullCk }
-              );
-            }
-          } else {
-            console.log(`❌ 上报失败: HTTP ${status} ${data} — 未写入记录，下次请求自动重试`);
-            diagnoseOnce(opts.diag, { ok: false, detail: describeFailure(status, data) });
-          }
+        if (!opts.isSilent) {
+          $notification.post(
+            "🎉 京东凭据已同步",
+            `${pin} (${changed.join("+")})`,
+            "已发送至对接服务器，点击可复制",
+            { clipboard: fullCk }
+          );
         }
-      } catch (cbErr) {
-        console.log(`❌ 回调异常: ${(cbErr && cbErr.message) || cbErr}`);
-      } finally {
-        $done({});
+      } else {
+        console.log(`❌ 上报失败: ${result.detail} — 未写入记录，下次请求自动重试`);
       }
+      diagnoseOnce(opts.diag, result.ok ? { ok: true, msg: result.msg } : { ok: false, detail: result.detail });
+    } catch (cbErr) {
+      console.log(`❌ 上报回调异常: ${(cbErr && cbErr.message) || cbErr}`);
+    } finally {
+      $done({});
     }
-  );
+  });
+}
+
+/**
+ * 带降级的上报：
+ *   1) 先用指定出口（默认 DIRECT）试一次
+ *   2) 失败且指定了出口 → 退回「当前路由」再试一次
+ * 两次都失败才判定失败。失败不写去重记录，下次请求自然重试。
+ */
+function sendUpload(route, payload, done) {
+  tryUpload(route, payload, function (first) {
+    if (first.ok) return done(first, route);
+    if (!route) return done(first, "当前路由");
+
+    console.log(`⚠️ 出口 ${route} 失败（${first.detail}），退回当前路由重试一次`);
+    tryUpload("", payload, function (second) {
+      if (second.ok) return done(second, "当前路由");
+      return done({ ok: false, detail: `出口${route}: ${first.detail} ｜ 当前路由: ${second.detail}` }, "两次均失败");
+    });
+  });
+}
+
+/**
+ * 单次上报
+ */
+function tryUpload(route, payload, cb) {
+  const options = {
+    url: BNCR_ENDPOINT,
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": resolveUserAgent()
+    },
+    body: JSON.stringify(payload),
+    timeout: 10000
+  };
+  if (route) options.node = route;
+
+  $httpClient.post(options, function (error, response, data) {
+    if (error) {
+      cb({ ok: false, detail: `网络错误: ${error}` });
+      return;
+    }
+    const status = response ? (response.status || response.statusCode) : 0;
+    let res = {};
+    try {
+      res = JSON.parse(data || "{}");
+    } catch (e) {
+      res = {};
+    }
+    if (status === 200 && (res.code === 0 || res.code === 200)) {
+      cb({ ok: true, msg: `${res.msg || "ok"} (${res.triggered || "-"})` });
+    } else {
+      cb({ ok: false, detail: describeFailure(status, data) });
+    }
+  });
 }
 
 /**
