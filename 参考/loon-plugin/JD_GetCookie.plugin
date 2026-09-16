@@ -1,10 +1,16 @@
 #!name = 京东Cookie/wskey提取与Bncr同步
 #!author = XiaoGe-LiBai
-#!desc = 双规则抓取京东凭据：api.m.jd.com 取 pt_key/pt_pin，sh.jd.com/d 取 wskey；跨请求自动拼装 pin 与 wskey，凭据首次捕获或刷新时静默同步至 bncr.xiaoge.ink。凭据未变时 0 弹窗、0 外发。
+#!desc = 双规则抓取京东凭据：api.m.jd.com 取 pt_key/pt_pin，sh.jd.com/d 取 wskey；跨请求自动拼装 pin 与 wskey，上报成功后弹窗提示，点击通知即复制凭据到剪贴板。凭据未变时不重复弹窗。
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Photos/jd.png
 #!openUrl = https://apps.apple.com/cn/app/id414245413
 #!tag = 京东,抓包,wskey,Bncr,自动化
 #!date = 2026-09-16
+
+[Rule]
+# bncr.xiaoge.ink 同时有 A(腾讯云) 与 AAAA(CERNET 教育网) 记录。
+# 走代理时，节点解析常优先取 AAAA → 教育网 IPv6，境外节点路由不到 → 连接卡死，
+# 表现为「开 Loon 访问不到后台、脚本上报失败」。强制直连即可。
+DOMAIN-SUFFIX,xiaoge.ink,DIRECT
 
 [Script]
 http-request ^https?:\/\/api\.m\.jd\.com\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-pin

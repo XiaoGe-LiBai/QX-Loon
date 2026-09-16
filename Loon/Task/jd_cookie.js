@@ -16,8 +16,18 @@
  * 去重：pt_key 与 wskey 各自记「最近一次成功上报」的值。凭据未变 → 直接放行。
  * 必须分开记 —— 合并成单个指纹会让两者互相覆盖，导致重复上报。
  *
+ * 通知：
+ *   上报成功后弹窗 1 次，点击通知即把凭据复制到剪贴板。
+ *   去重保证同一凭据只弹一次，不会刷屏。
+ *   未抓到凭据 / 跳过 / 上报失败时，弹的是「诊断通知」（每版本一次），说明原因。
+ *
+ * 网络前提：
+ *   上报走 Loon 的 $httpClient，遵守分流规则。bncr.xiaoge.ink 同时有 A(腾讯云)
+ *   与 AAAA(CERNET 教育网) 记录，代理节点通常路由不到教育网 IPv6 会导致连接卡死。
+ *   插件的 [Rule] 已把该域名强制 DIRECT（见 JD_GetCookie.plugin）。
+ *
  * 参数（argument）：
- *   silent=true/false  默认 true；false 时仅在凭据变更并上报成功时弹窗 1 次
+ *   silent=true/false  默认 false（成功即弹窗+点击复制）；true 则完全静默
  *   upload=on/off      默认 on
  *   debug=on/off       默认 off；on 时每次命中都打日志（排查用）
  *
@@ -37,7 +47,7 @@ const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次成功上�
 const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 一次性诊断通知标记（按版本）
 
-const SCRIPT_VERSION = "2026-09-16.4";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.5";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
 
 (function () {
   try {
@@ -47,7 +57,8 @@ const SCRIPT_VERSION = "2026-09-16.4";       // 改脚本时同步更新，日�
 
     const headers = $request.headers || {};
     const args = parseArgs(typeof $argument === "string" ? $argument : "");
-    const isSilent = (args.silent || "true").toLowerCase() !== "false";
+    // 默认「上报成功即弹窗」（可点击复制凭据）；去重保证同一凭据只弹一次，不会刷屏
+    const isSilent = (args.silent || "false").toLowerCase() === "true";
     const isUploadEnabled = (args.upload || "on").toLowerCase() !== "off";
     const isDebug = (args.debug || "off").toLowerCase() === "on";
 
@@ -230,6 +241,8 @@ function describeFailure(status, body) {
  */
 function diagnoseOnce(d, outcome) {
   if (!d) return;
+  // 上报成功由正式通知负责（带点击复制），这里只报「没抓到 / 跳过 / 失败」，避免同一件事弹两次
+  if (outcome && outcome.ok) return;
   const key = STORE_DIAG_PREFIX + SCRIPT_VERSION;
   if ($persistentStore.read(key)) return;
   $persistentStore.write("1", key);
@@ -244,8 +257,6 @@ function diagnoseOnce(d, outcome) {
     result = "这条请求不带 CK，属正常；继续用京东 App 即可";
   } else if (outcome.kind === "skipped") {
     result = outcome.reason || "已跳过上报";
-  } else if (outcome.ok) {
-    result = `✅ 上报成功：${outcome.msg}`;
   } else {
     result = `❌ 上报失败：${outcome.detail}`;
   }
