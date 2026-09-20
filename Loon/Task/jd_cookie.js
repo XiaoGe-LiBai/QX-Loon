@@ -19,28 +19,32 @@
  * 否则 JD App 并发打多个 basicConfig 时每个实例都会放行 → 重复外发 + 弹窗风暴。
  * 上报失败会按值回滚，让下一个请求能自然重试。
  *
- * 通知：
- *   上报成功 → 弹窗 1 次，点击通知即把凭据复制到剪贴板。
- *   上报失败 / upload=off → 弹「诊断通知」（每版本每账号至多 1 条）。
- *   无 CK / 无 pin / 凭据未变 → 只写日志，不弹窗（这些是正常状态）。
+ * 通知（三类，互不重叠）：
+ *   抓到新 wskey → 立刻弹窗（不等上报结果），点击复制 pin=…;wskey=…;
+ *   上报成功     → 弹窗 1 次，点击复制完整凭据（有 pt_key 时给 pt_key 形态）
+ *   上报失败 / upload=off → 弹「诊断通知」（每版本每账号至多 1 条）
+ *   无 CK / 无 pin / 凭据未变 → 只写日志，不弹窗（这些是正常状态）
  *
- * 网络前提：
- *   上报走 Loon 的 $httpClient，遵守分流规则。bncr.xiaoge.ink 的 A 记录
- *   (腾讯云) 在 TLS 阶段即被 RST，只有 AAAA(CERNET 教育网) 可达，
- *   故插件的 [Host] 已把该域名单独设为 IPv6 优先（见 JD_GetCookie.plugin）。
+ * 上报：并发打 bncr / bncr2 两个域名，任一成功即算成功（冗余投递）。
+ *   两个域名都在 Cloudflare 上，A/AAAA 均可达，插件只保留直连、不再强制 IPv6。
+ *   一轮全失败才退回「当前路由」再发一轮；两轮都失败才算失败。
  *
  * 参数（argument）：
  *   silent=true/false  默认 false（成功即弹窗+点击复制）；true 则完全静默
  *   upload=on/off      默认 on
- *   node=DIRECT        上报出口，默认 DIRECT；填策略名时若首试失败会自动
- *                      退回「当前路由」重试一次（两次都失败才算失败）
+ *   node=DIRECT        上报出口，默认 DIRECT；填策略名时若首轮失败会自动
+ *                      退回「当前路由」重试一轮（两轮都失败才算失败）
  *   debug=on/off       默认 off；on 时每次命中都打日志（排查用）
  *
  * @author XiaoGe-LiBai
  * @license MIT
  */
 
-const BNCR_ENDPOINT = "https://bncr.xiaoge.ink/api/Doraemon/loginCallback_receive";
+// 并发上报的两个域名，任一成功即算成功（冗余投递）
+const BNCR_ENDPOINTS = [
+  { name: "bncr",  url: "https://bncr.xiaoge.ink/api/Doraemon/loginCallback_receive" },
+  { name: "bncr2", url: "https://bncr2.xiaoge.ink/api/Doraemon/loginCallback_receive" }
+];
 const BNCR_AUTH_TOKEN = "96358b36fc0769de2c8373d5e3582bb9";
 
 const PIN_TTL_MS = 12 * 60 * 60 * 1000;      // pin 记忆有效期
@@ -51,8 +55,9 @@ const STORE_PTKEY_PREFIX = "jd_loon_ptkey_"; // 每账号最近一次已受理�
 const STORE_WSKEY_PREFIX = "jd_loon_wskey_"; // 每账号最近一次已受理的 wskey（失败会回滚）
 const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 诊断通知标记（按版本+账号，每人每版至多 1 条）
+const STORE_WSKEY_POP_PREFIX = "jd_loon_wskeypop_"; // 每账号最近一次已弹窗的 wskey（不回滚：弹窗是抓包事件，与上报成败无关）
 
-const SCRIPT_VERSION = "2026-09-16.8";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.9";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
 
 // ctx 承载本次请求的全部上下文：在同步段一次算好，随后在异步回调间传递
 (function () {
@@ -76,7 +81,7 @@ const SCRIPT_VERSION = "2026-09-16.8";       // 改脚本时同步更新，日�
       // 默认「上报成功即弹窗」（可点击复制凭据）；去重保证同一凭据只弹一次，不会刷屏
       isSilent: (args.silent || "false").toLowerCase() === "true",
       isUploadEnabled: (args.upload || "on").toLowerCase() !== "off",
-      // 上报出口：默认 DIRECT（bncr.xiaoge.ink 的 AAAA 指向教育网，走代理必连不通）
+      // 上报出口：默认 DIRECT（两个域名都在 Cloudflare，直连即可，省一次代理往返）
       node: String(args.node || "").trim() || "DIRECT"
     };
 
@@ -153,6 +158,13 @@ function handle(pin, rawPin, ctx) {
   if (ptKeyChanged) $persistentStore.write(ptKey, ptKeyStore);
   if (wskeyChanged) $persistentStore.write(wskey, wskeyStore);
 
+  // 抓到新 wskey 立刻弹窗（不等上报结果）：点击复制 pin=…;wskey=…; 形态。
+  // 用独立标记去重、且不随上报失败回滚 —— 弹窗是「抓到了」这件事，
+  // 与「送达了没有」无关；送达失败另有诊断通知负责。
+  // 记下刚弹过的剪贴板：若成功弹窗的内容与它逐字相同（只有 wskey 变化时就是如此），
+  // 就不再重复弹一条 —— 否则同一件事会连弹两条内容一样的窗。
+  ctx.wskeyPopClip = wskeyChanged ? popWskeyOnce(pin, wskey, ctx.isSilent) : "";
+
   console.log(`================== [京东CK抓取 v${SCRIPT_VERSION}] ==================`);
   console.log(`账号 PIN : ${pin}`);
   console.log(`变更类型 : ${changedLabel}`);
@@ -174,18 +186,18 @@ function handle(pin, rawPin, ctx) {
     callback_id: BNCR_AUTH_TOKEN
   };
 
-  console.log(`→ 上报 ${BNCR_ENDPOINT}（出口: ${ctx.node}）`);
+  console.log(`→ 并发上报 ${BNCR_ENDPOINTS.map(function (e) { return e.name; }).join(" + ")}（出口: ${ctx.node}）`);
 
   sendUpload(ctx.node, payload, function (result, usedRoute) {
     try {
       if (result.ok) {
         console.log(`✅ 上报成功[${usedRoute}]: ${result.msg}`);
 
-        if (!ctx.isSilent) {
+        if (!ctx.isSilent && fullCk !== ctx.wskeyPopClip) {
           $notification.post(
             "🎉 京东CK已同步",
             `${pin} (${changedLabel})`,
-            "已发送至对接服务器，点击可复制",
+            `已送达 ${result.delivered.join(" + ")}，点击可复制`,
             { clipboard: fullCk }
           );
         }
@@ -208,30 +220,62 @@ function handle(pin, rawPin, ctx) {
 }
 
 /**
- * 带降级的上报：
- *   1) 先用指定出口（默认 DIRECT）试一次
- *   2) 失败且指定了出口 → 退回「当前路由」再试一次
- * 两次都失败才判定失败。失败不写去重记录，下次请求自然重试。
+ * 带降级的上报（两个域名并发，任一成功即算成功）：
+ *   1) 用指定出口（默认 DIRECT）并发打所有域名 —— 任一成功即成功
+ *   2) 全部失败且指定了出口 → 退回「当前路由」再并发打一轮
+ * 两轮都失败才判定失败。失败不写去重记录，下次请求自然重试。
  */
 function sendUpload(route, payload, done) {
-  tryUpload(route, payload, function (first) {
+  uploadRound(route, payload, function (first) {
     if (first.ok) return done(first, route);
     if (!route) return done(first, "当前路由");
 
-    console.log(`⚠️ 出口 ${route} 失败（${first.detail}），退回当前路由重试一次`);
-    tryUpload("", payload, function (second) {
+    console.log(`⚠️ 出口 ${route} 两个域名均失败（${first.detail}），退回当前路由重试一轮`);
+    uploadRound("", payload, function (second) {
       if (second.ok) return done(second, "当前路由");
-      return done({ ok: false, detail: `出口${route}: ${first.detail} ｜ 当前路由: ${second.detail}` }, "两次均失败");
+      return done({ ok: false, detail: `出口${route}: ${first.detail} ｜ 当前路由: ${second.detail}` }, "两轮均失败");
     });
   });
 }
 
 /**
- * 单次上报
+ * 一轮上报：并发打所有域名，等【全部】回调落地后再汇总。
+ * 必须等齐再回调 —— 还有请求在飞就回调会让调用方提前 $done()，Loon 会掐断在途请求。
+ * 判定：任一域名成功即算这一轮成功（冗余投递语义）。
  */
-function tryUpload(route, payload, cb) {
+function uploadRound(route, payload, cb) {
+  const results = [];
+  let pending = BNCR_ENDPOINTS.length;
+
+  BNCR_ENDPOINTS.forEach(function (endpoint, i) {
+    tryUpload(endpoint, route, payload, function (r) {
+      results[i] = r;
+      pending -= 1;
+      if (pending > 0) return;
+
+      const delivered = results.filter(function (x) { return x.ok; }).map(function (x) { return x.name; });
+      if (delivered.length) {
+        cb({
+          ok: true,
+          delivered: delivered,
+          msg: `${results.filter(function (x) { return x.ok; })[0].msg} [${delivered.join("+")}]`
+        });
+      } else {
+        cb({
+          ok: false,
+          detail: results.map(function (x) { return `${x.name}: ${x.detail}`; }).join(" ｜ ")
+        });
+      }
+    });
+  });
+}
+
+/**
+ * 单次上报（单个域名）
+ */
+function tryUpload(endpoint, route, payload, cb) {
   const options = {
-    url: BNCR_ENDPOINT,
+    url: endpoint.url,
     headers: {
       "Content-Type": "application/json",
       "User-Agent": resolveUserAgent()
@@ -243,7 +287,7 @@ function tryUpload(route, payload, cb) {
 
   $httpClient.post(options, function (error, response, data) {
     if (error) {
-      cb({ ok: false, detail: `网络错误: ${error}` });
+      cb({ ok: false, name: endpoint.name, detail: `网络错误: ${error}` });
       return;
     }
     const status = response ? (response.status || response.statusCode) : 0;
@@ -254,9 +298,9 @@ function tryUpload(route, payload, cb) {
       res = {};
     }
     if (status === 200 && (res.code === 0 || res.code === 200)) {
-      cb({ ok: true, msg: `${res.msg || "ok"} (${res.triggered || "-"})` });
+      cb({ ok: true, name: endpoint.name, msg: `${res.msg || "ok"} (${res.triggered || "-"})` });
     } else {
-      cb({ ok: false, detail: describeFailure(status, data) });
+      cb({ ok: false, name: endpoint.name, detail: describeFailure(status, data) });
     }
   });
 }
@@ -272,6 +316,24 @@ function describeFailure(status, body) {
     return `HTTP ${status}，返回的是 HTML 而非接口 JSON（疑似被运营商/网关劫持或走了错误线路）: ${snippet}`;
   }
   return `HTTP ${status}: ${snippet || "空响应"}`;
+}
+
+/**
+ * 抓到新 wskey 的弹窗：剪贴板固定 pin=…;wskey=…; 形态。
+ * 独立标记、不随上报失败回滚 —— 同一份 wskey 只弹一次，与送达成败无关。
+ */
+function popWskeyOnce(pin, wskey, isSilent) {
+  if (isSilent || !wskey) return "";
+  const key = STORE_WSKEY_POP_PREFIX + pin;
+  if (($persistentStore.read(key) || "") === wskey) return "";
+  $persistentStore.write(wskey, key);
+  const clip = `pin=${encodeURIComponent(pin)};wskey=${wskey};`;
+  try {
+    $notification.post("🔑 京东wskey已获取", pin, "已拼接 pin + wskey，点击可复制", { clipboard: clip });
+  } catch (e) {
+    // 通知失败不影响主流程
+  }
+  return clip;
 }
 
 /**
