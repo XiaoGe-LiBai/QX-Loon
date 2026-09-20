@@ -1,10 +1,15 @@
 #!name = 京东Cookie/wskey提取与Bncr同步
 #!author = XiaoGe-LiBai
-#!desc = 双规则抓取京东凭据：api.m.jd.com 取 pt_key/pt_pin，sh.jd.com/d 取 wskey；跨请求自动拼装 pin 与 wskey，并发上报 bncr/bncr2 两个域名。抓到新 wskey 即弹窗（点击复制 pin+wskey），上报成功后另弹窗（点击复制完整凭据）。凭据未变时不重复弹窗。
+#!desc = 双规则抓取京东凭据：api.m.jd.com 取 pt_key/pt_pin，sh.jd.com/d 取 wskey；跨请求自动拼装 pin 与 wskey，并发上报 bncr/bncr2 两个域名。抓到新 wskey 即弹窗（点击复制 pin+wskey），上报成功后另弹窗（点击复制完整凭据）。凭据未变时不重复弹窗。可在插件设置里分别关闭「自动上传」「弹窗 wskey」「弹窗 pt_key」。
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Photos/jd.png
 #!openUrl = https://apps.apple.com/cn/app/id414245413
 #!tag = 京东,抓包,wskey,Bncr,自动化
 #!date = 2026-09-16
+
+[Argument]
+upload = switch, true, false, tag=自动上传, desc=关闭后只抓取与弹窗，不向 bncr 服务器上报
+notifyWskey = switch, true, false, tag=弹窗：wskey, desc=抓到新 wskey 时弹窗，点击可复制 pin 与 wskey
+notifyPtKey = switch, true, false, tag=弹窗：pt_key, desc=上报成功后弹窗，点击可复制完整凭据
 
 [Rule]
 # 两个回调域名（bncr.xiaoge.ink / bncr2.xiaoge.ink）都在 Cloudflare 上，A/AAAA 均可达。
@@ -12,8 +17,8 @@
 DOMAIN-SUFFIX,xiaoge.ink,DIRECT
 
 [Script]
-http-request ^https?:\/\/api\.m\.jd\.com\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-pin
-http-request ^https?:\/\/sh\.jd\.com\/d script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, requires-body=false, timeout=60, tag=京东Cookie-wskey
+http-request ^https?:\/\/api\.m\.jd\.com\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, argument=[{upload}, {notifyWskey}, {notifyPtKey}], requires-body=false, timeout=60, tag=京东Cookie-pin
+http-request ^https?:\/\/sh\.jd\.com\/d script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, argument=[{upload}, {notifyWskey}, {notifyPtKey}], requires-body=false, timeout=60, tag=京东Cookie-wskey
 
 [MITM]
 hostname = api.m.jd.com, sh.jd.com

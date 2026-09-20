@@ -29,12 +29,19 @@
  *   两个域名都在 Cloudflare 上，A/AAAA 均可达，插件只保留直连、不再强制 IPv6。
  *   一轮全失败才退回「当前路由」再发一轮；两轮都失败才算失败。
  *
- * 参数（argument）：
- *   silent=true/false  默认 false（成功即弹窗+点击复制）；true 则完全静默
- *   upload=on/off      默认 on
- *   node=DIRECT        上报出口，默认 DIRECT；填策略名时若首轮失败会自动
- *                      退回「当前路由」重试一轮（两轮都失败才算失败）
- *   debug=on/off       默认 off；on 时每次命中都打日志（排查用）
+ * 参数（argument）：插件 [Argument] 段会生成三个开关，下面三个是它们的名字。
+ *   upload=on/off          自动上传，默认 on。关掉后只抓取与弹窗，不外发
+ *   notifyWskey=on/off     弹窗 wskey，默认 on（抓到新 wskey 时弹，点击复制 pin+wskey）
+ *   notifyPtKey=on/off     弹窗 pt_key，默认 on（上报成功后弹，点击复制完整凭据）
+ *   —— 以下三个不出现在界面里，需要时手动加到规则末尾 ——
+ *   silent=on/off          默认 off；on 则总静默（压过上面两个弹窗开关）
+ *   node=DIRECT            上报出口，默认 DIRECT；填策略名时若首轮失败会自动
+ *                          退回「当前路由」重试一轮（两轮都失败才算失败）
+ *   debug=on/off           默认 off；on 时每次命中都打日志（排查用）
+ *
+ * 开关的安全性：三个开关的默认值**同时写在代码里**（ARG_DEFAULTS），
+ * 并采用「只有显式关断才算关」的判定 —— 参数缺失、取值异常、Loon 没传值，
+ * 一律保持开启。绝不因为读不到参数而静默停掉上报。
  *
  * @author XiaoGe-LiBai
  * @license MIT
@@ -57,7 +64,15 @@ const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 诊断通知标记（按版本+账号，每人每版至多 1 条）
 const STORE_WSKEY_POP_PREFIX = "jd_loon_wskeypop_"; // 每账号最近一次已弹窗的 wskey（不回滚：弹窗是抓包事件，与上报成败无关）
 
-const SCRIPT_VERSION = "2026-09-16.9";       // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.10";      // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+
+// 界面开关的代码内默认值。$argument 缺失或取值异常时以这里为准，
+// 避免「Loon 没把参数传下来 ⇒ 静默关掉上报」这类哑掉的情况。
+const ARG_DEFAULTS = {
+  upload: true,        // 自动上传
+  notifyWskey: true,   // 抓到新 wskey 时弹窗
+  notifyPtKey: true    // 上报成功后弹窗
+};
 
 // ctx 承载本次请求的全部上下文：在同步段一次算好，随后在异步回调间传递
 (function () {
@@ -66,7 +81,7 @@ const SCRIPT_VERSION = "2026-09-16.9";       // 改脚本时同步更新，日�
       return $done({});
     }
 
-    const args = parseArgs(typeof $argument === "string" ? $argument : "");
+    const args = parseArgument(ARG_DEFAULTS);
     const parsed = collectCookie($request.headers || {});
 
     const ctx = {
@@ -77,10 +92,13 @@ const SCRIPT_VERSION = "2026-09-16.9";       // 改脚本时同步更新，日�
       wskey: pick(parsed.cookie, "wskey"),
       rawPin: pick(parsed.cookie, "pt_pin") || pick(parsed.cookie, "pin") || pick(parsed.cookie, "pwdt_id"),
       pin: "",
-      isDebug: (args.debug || "off").toLowerCase() === "on",
+      isDebug: isOn(args.debug),
       // 默认「上报成功即弹窗」（可点击复制凭据）；去重保证同一凭据只弹一次，不会刷屏
-      isSilent: (args.silent || "false").toLowerCase() === "true",
-      isUploadEnabled: (args.upload || "on").toLowerCase() !== "off",
+      isSilent: isOn(args.silent),
+      // 三个界面开关：只有显式关断才关（见 isOff 的注释）
+      isUploadEnabled: !isOff(args.upload),
+      isNotifyWskey: !isOff(args.notifyWskey),
+      isNotifyPtKey: !isOff(args.notifyPtKey),
       // 上报出口：默认 DIRECT（两个域名都在 Cloudflare，直连即可，省一次代理往返）
       node: String(args.node || "").trim() || "DIRECT"
     };
@@ -163,7 +181,9 @@ function handle(pin, rawPin, ctx) {
   // 与「送达了没有」无关；送达失败另有诊断通知负责。
   // 记下刚弹过的剪贴板：若成功弹窗的内容与它逐字相同（只有 wskey 变化时就是如此），
   // 就不再重复弹一条 —— 否则同一件事会连弹两条内容一样的窗。
-  ctx.wskeyPopClip = wskeyChanged ? popWskeyOnce(pin, wskey, ctx.isSilent) : "";
+  ctx.wskeyPopClip = (wskeyChanged && ctx.isNotifyWskey)
+    ? popWskeyOnce(pin, wskey, ctx.isSilent)
+    : "";
 
   console.log(`================== [京东CK抓取 v${SCRIPT_VERSION}] ==================`);
   console.log(`账号 PIN : ${pin}`);
@@ -172,8 +192,8 @@ function handle(pin, rawPin, ctx) {
   console.log("================================================================");
 
   if (!ctx.isUploadEnabled) {
-    console.log("ℹ️ upload=off，已跳过外发");
-    diagnoseOnce(ctx, "upload=off，未外发");
+    console.log("ℹ️ 「自动上传」已关闭，跳过外发（凭据只弹窗、不外发）");
+    diagnoseOnce(ctx, "「自动上传」已关闭，未外发");
     return $done({});
   }
 
@@ -193,7 +213,11 @@ function handle(pin, rawPin, ctx) {
       if (result.ok) {
         console.log(`✅ 上报成功[${usedRoute}]: ${result.msg}`);
 
-        if (!ctx.isSilent && fullCk !== ctx.wskeyPopClip) {
+        // 这条弹窗报的是「送达」。带 pt_key 时给的是 pt_key 形态，归 notifyPtKey 管；
+        // 只有 wskey 时给的是 wskey 形态，归 notifyWskey 管 —— 这样两个开关各自
+        // 都能独立地「把自己那类凭据的弹窗全部关掉」。
+        const notifyThis = ptKey ? ctx.isNotifyPtKey : ctx.isNotifyWskey;
+        if (!ctx.isSilent && notifyThis && fullCk !== ctx.wskeyPopClip) {
           $notification.post(
             "🎉 京东CK已同步",
             `${pin} (${changedLabel})`,
@@ -472,18 +496,50 @@ function decodePin(value) {
 }
 
 /**
- * 参数解析（a=1&b=2）
+ * 解析插件参数，并合并到 defaults 之上。
+ * 三种来源都支持（按 Loon 版本与传参方式而异）：
+ *   - 对象：规则写作 argument=[{upload},{notifyWskey}] 时，$argument 是对象
+ *   - JSON 串：argument={"upload":false}
+ *   - k=v 串：手写在规则末尾的 upload=off&debug=on（, 与 & 都当分隔符）
+ * 关键：先铺 defaults，再让 $argument 覆盖 —— 参数没传下来时仍有确定行为。
  */
-function parseArgs(str) {
-  const out = {};
-  String(str || "").split("&").forEach(function (kv) {
-    if (!kv) return;
-    const idx = kv.indexOf("=");
-    const key = (idx >= 0 ? kv.slice(0, idx) : kv).trim();
-    if (!key) return;
-    out[key] = decodeURIComponent(idx >= 0 ? kv.slice(idx + 1) : "");
-  });
-  return out;
+function parseArgument(defaults) {
+  const out = Object.assign({}, defaults);
+  if (typeof $argument === "object" && $argument) {
+    return Object.assign(out, $argument);
+  }
+  const text = String(typeof $argument === "string" ? $argument : "").trim();
+  if (!text) return out;
+  try {
+    return Object.assign(out, JSON.parse(text));
+  } catch (e) {
+    text.split(/[,&]/).forEach(function (kv) {
+      const idx = kv.indexOf("=");
+      if (idx <= 0) return;
+      out[kv.slice(0, idx).trim()] = decodeURIComponent(kv.slice(idx + 1).trim());
+    });
+    return out;
+  }
+}
+
+/**
+ * 「只有显式关断才算关」—— 用于默认开启的三个界面开关。
+ * 参数缺失（undefined/null/空串）、取值异常（Loon 传了没见过的写法）
+ * 都保持开启，绝不会因为读不到参数而静默停掉上报。
+ */
+function isOff(value) {
+  if (value === false) return true;
+  if (typeof value === "number") return value === 0;
+  return /^(false|0|no|off)$/i.test(String(value == null ? "" : value).trim());
+}
+
+/**
+ * 「只有显式开启才算开」—— 用于默认关闭的 debug / silent。
+ */
+function isOn(value) {
+  if (value === true) return true;
+  if (typeof value === "number") return value !== 0;
+  return /^(true|1|yes|on)$/i.test(String(value == null ? "" : value).trim());
 }
 
 /**

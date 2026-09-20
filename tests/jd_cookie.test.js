@@ -165,4 +165,65 @@ assert.strictEqual(r10.state.notes.length, 1, "只应有成功通知（其内容
 assert.ok(r10.state.notes[0][0].indexOf("已同步") > 0, "这条是成功通知");
 assert.strictEqual(r10.state.notes[0][3].clipboard, "pin=test;wskey=WWW;", "剪贴板仍是完整 pin+wskey");
 
-console.log("✅ jd_cookie.js 自检通过（10 组）");
+// ---- 插件开关（[Argument] 以对象形式传下来）----
+
+// 11) 自动上传关闭 → 只抓取，不外发，弹一条诊断
+const r11 = run({
+  headers: { cookie: "pt_key=F11; pt_pin=u11" },
+  argument: { upload: false, notifyWskey: true, notifyPtKey: true }
+});
+assert.strictEqual(r11.state.uploads.length, 0, "自动上传关闭 → 不外发");
+assert.strictEqual(r11.state.notes.length, 1, "应弹一条诊断说明未外发");
+assert.ok(r11.state.notes[0][0].indexOf("诊断") > 0, "弹的是诊断而非成功通知");
+
+// 12) 弹窗 wskey 关闭 → only-wskey 变化时一条都不弹
+const r12 = run({
+  headers: { cookie: "wskey=W12" },
+  url: "https://sh.jd.com/d?x=1",
+  store: { jd_loon_pin: JSON.stringify({ pin: "test", raw: "test", ts: Date.now() }) },
+  argument: { upload: true, notifyWskey: false, notifyPtKey: true }
+});
+assert.strictEqual(r12.state.uploads.length, 2, "关弹窗不影响上报");
+assert.strictEqual(r12.state.notes.length, 0, "wskey 弹窗关闭后，wskey 形态的成功弹窗也不该弹");
+
+// 13) 弹窗 pt_key 关闭 → pt_key 变化时不弹，但仍上报
+const r13 = run({
+  headers: { cookie: "pt_key=F13; pt_pin=u13" },
+  argument: { upload: true, notifyWskey: true, notifyPtKey: false }
+});
+assert.strictEqual(r13.state.uploads.length, 2, "关弹窗不影响上报");
+assert.strictEqual(r13.state.notes.length, 0, "pt_key 弹窗关闭 → 不弹");
+
+// 14) 两个弹窗都关 + 两种凭据同时变化 → 完全静默
+const r14 = run({
+  headers: { cookie: "pt_key=F14; pt_pin=u14; wskey=W14" },
+  store: { jd_loon_pin: JSON.stringify({ pin: "u14", raw: "u14", ts: Date.now() }) },
+  argument: { upload: true, notifyWskey: false, notifyPtKey: false }
+});
+assert.strictEqual(r14.state.uploads.length, 2, "静默不等于不上传");
+assert.strictEqual(r14.state.notes.length, 0, "两个弹窗开关都关 → 一条都不弹");
+
+// 15) fail-safe：参数缺失 / 取值异常，一律保持开启，绝不静默停掉上报
+const r15a = run({ headers: { cookie: "pt_key=F15; pt_pin=u15" }, argument: "" });
+assert.strictEqual(r15a.state.uploads.length, 2, "无参数 → 默认上传");
+assert.strictEqual(r15a.state.notes.length, 1, "无参数 → 默认弹窗");
+const r15b = run({
+  headers: { cookie: "pt_key=F16; pt_pin=u16" },
+  argument: { upload: "", notifyWskey: null, notifyPtKey: undefined }
+});
+assert.strictEqual(r15b.state.uploads.length, 2, "取值异常（空串/null/undefined）应 fail-safe 为开启");
+assert.strictEqual(r15b.state.notes.length, 1, "取值异常也应弹窗");
+
+// 16) 仍兼容手写在规则末尾的 k=v 串（含 arg 传成 JSON 串的形态）
+const r16 = run({
+  headers: { cookie: "pt_key=F17; pt_pin=u17" },
+  argument: "upload=off,debug=off"
+});
+assert.strictEqual(r16.state.uploads.length, 0, "k=v 串仍能关闭上传");
+const r16b = run({
+  headers: { cookie: "pt_key=F18; pt_pin=u18" },
+  argument: '{"upload":false}'
+});
+assert.strictEqual(r16b.state.uploads.length, 0, "JSON 串形态也能关闭上传");
+
+console.log("✅ jd_cookie.js 自检通过（16 组）");
