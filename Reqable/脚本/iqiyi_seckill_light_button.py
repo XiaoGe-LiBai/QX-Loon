@@ -1,8 +1,9 @@
-"""
+﻿"""
 Reqable 脚本 - 爱奇艺尖叫之夜按钮点亮
 @author XiaoGe-LiBai
 @date 2025-11-21
-"""
+
+@license MIT"""
 
 from reqable import *
 import time
@@ -14,12 +15,14 @@ EXTEND_HOURS = 48     # 延长活动时间（小时）
 
 
 def onRequest(context, request):
-    """请求处理函数（直接放行）"""
+    """请求处理函数（直接放行）
+@license MIT"""
     return request
 
 
 def onResponse(context, response):
-    """响应处理函数 - 修改库存和活动时间"""
+    """响应处理函数 - 修改库存和活动时间
+@license MIT"""
     try:
         # 检查响应体
         if response.body.isNone:
@@ -86,3 +89,4 @@ def onResponse(context, response):
         import traceback
         traceback.print_exc()
         return response
+
