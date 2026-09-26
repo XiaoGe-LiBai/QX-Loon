@@ -1,0 +1,12 @@
+#!name = 美团外卖-商品券库存解锁
+#!desc = 通杀任意商品券：详情页「已经抢光」改为有货，放行确认页库存/下架拦截，补齐可用门店
+#!author = XiaoGe-LiBai
+#!date = 2026-09-26
+#!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Photos/mt.png
+#!openUrl = https://i.waimai.meituan.com/wm-goodscoupon-detail/
+
+[Script]
+http-response ^https?:\/\/i\.waimai\.meituan\.com\/openh5\/vp\/poicoupon\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/MT_GoodsCoupon_Stock.js, requires-body=true, timeout=30, tag=美团商品券库存解锁
+
+[MITM]
+hostname = i.waimai.meituan.com
