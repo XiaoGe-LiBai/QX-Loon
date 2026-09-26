@@ -7,7 +7,7 @@
 
 const scriptName = '小米汽车活动';
 
-// 日历会场数据，与服务端格式对齐
+// 日历会场数据，与服务端格式对齐（从 refreshCalendar 抓包确认）
 const CALENDAR_DATA = {
     activityId: '809302857',
     enableQuota: true,
@@ -15,57 +15,55 @@ const CALENDAR_DATA = {
     monthList: [{
         year: '2026',
         month: '5',
-        defaultRound: '2026-05-31 10:00-11:00',
+        defaultRound: '2026-05-31 15:00-16:00',
         expired: false,
         dateList: [{
             date: '31',
             disabled: false,
             times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '5月31日10:00-11:00', round: '2026-05-31 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '5月31日13:00-14:00', round: '2026-05-31 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '5月31日15:00-16:00', round: '2026-05-31 15:00-16:00', buyLimit: 1, disabled: false }
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-05-31 15:00-16:00', buyLimit: 1, disabled: false }
             ]
         }]
     }, {
         year: '2026',
         month: '6',
-        defaultRound: '2026-06-01 10:00-11:00',
+        defaultRound: null,
         expired: false,
         dateList: [
-            { date: '1', disabled: false, times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '6月1日10:00-11:00', round: '2026-06-01 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '6月1日13:00-14:00', round: '2026-06-01 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '6月1日15:00-16:00', round: '2026-06-01 15:00-16:00', buyLimit: 1, disabled: false }
+            { date: '1', disabled: true, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '第一场10:00-11:00', round: '2026-06-01 10:00-11:00', buyLimit: 1, disabled: true },
+                { startTime: '13:00', endTime: '14:00', roundName: '第二场13:00-14:00', round: '2026-06-01 13:00-14:00', buyLimit: 1, disabled: true },
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-06-01 15:00-16:00', buyLimit: 1, disabled: true }
             ]},
-            { date: '2', disabled: false, times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '6月2日10:00-11:00', round: '2026-06-02 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '6月2日13:00-14:00', round: '2026-06-02 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '6月2日15:00-16:00', round: '2026-06-02 15:00-16:00', buyLimit: 1, disabled: false }
+            { date: '2', disabled: true, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '第一场10:00-11:00', round: '2026-06-02 10:00-11:00', buyLimit: 1, disabled: true },
+                { startTime: '13:00', endTime: '14:00', roundName: '第二场13:00-14:00', round: '2026-06-02 13:00-14:00', buyLimit: 1, disabled: true },
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-06-02 15:00-16:00', buyLimit: 1, disabled: true }
             ]},
-            { date: '3', disabled: false, times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '6月3日10:00-11:00', round: '2026-06-03 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '6月3日13:00-14:00', round: '2026-06-03 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '6月3日15:00-16:00', round: '2026-06-03 15:00-16:00', buyLimit: 1, disabled: false }
+            { date: '3', disabled: true, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '第一场10:00-11:00', round: '2026-06-03 10:00-11:00', buyLimit: 1, disabled: true },
+                { startTime: '13:00', endTime: '14:00', roundName: '第二场13:00-14:00', round: '2026-06-03 13:00-14:00', buyLimit: 1, disabled: true },
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-06-03 15:00-16:00', buyLimit: 1, disabled: true }
             ]},
-            { date: '4', disabled: false, times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '6月4日10:00-11:00', round: '2026-06-04 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '6月4日13:00-14:00', round: '2026-06-04 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '6月4日15:00-16:00', round: '2026-06-04 15:00-16:00', buyLimit: 1, disabled: false }
+            { date: '4', disabled: true, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '第一场10:00-11:00', round: '2026-06-04 10:00-11:00', buyLimit: 1, disabled: true },
+                { startTime: '13:00', endTime: '14:00', roundName: '第二场13:00-14:00', round: '2026-06-04 13:00-14:00', buyLimit: 1, disabled: true },
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-06-04 15:00-16:00', buyLimit: 1, disabled: true }
             ]},
-            { date: '5', disabled: false, times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '6月5日10:00-11:00', round: '2026-06-05 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '6月5日13:00-14:00', round: '2026-06-05 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '6月5日15:00-16:00', round: '2026-06-05 15:00-16:00', buyLimit: 1, disabled: false }
+            { date: '5', disabled: true, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '第一场10:00-11:00', round: '2026-06-05 10:00-11:00', buyLimit: 1, disabled: true },
+                { startTime: '13:00', endTime: '14:00', roundName: '第二场13:00-14:00', round: '2026-06-05 13:00-14:00', buyLimit: 1, disabled: true },
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-06-05 15:00-16:00', buyLimit: 1, disabled: true }
             ]},
-            { date: '6', disabled: false, times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '6月6日10:00-11:00', round: '2026-06-06 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '6月6日13:00-14:00', round: '2026-06-06 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '6月6日15:00-16:00', round: '2026-06-06 15:00-16:00', buyLimit: 1, disabled: false }
+            { date: '6', disabled: true, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '第一场10:00-11:00', round: '2026-06-06 10:00-11:00', buyLimit: 1, disabled: true },
+                { startTime: '13:00', endTime: '14:00', roundName: '第二场13:00-14:00', round: '2026-06-06 13:00-14:00', buyLimit: 1, disabled: true },
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-06-06 15:00-16:00', buyLimit: 1, disabled: true }
             ]},
-            { date: '7', disabled: false, times: [
-                { startTime: '10:00', endTime: '11:00', roundName: '6月7日10:00-11:00', round: '2026-06-07 10:00-11:00', buyLimit: 1, disabled: false },
-                { startTime: '13:00', endTime: '14:00', roundName: '6月7日13:00-14:00', round: '2026-06-07 13:00-14:00', buyLimit: 1, disabled: false },
-                { startTime: '15:00', endTime: '16:00', roundName: '6月7日15:00-16:00', round: '2026-06-07 15:00-16:00', buyLimit: 1, disabled: false }
+            { date: '7', disabled: true, times: [
+                { startTime: '10:00', endTime: '11:00', roundName: '第一场10:00-11:00', round: '2026-06-07 10:00-11:00', buyLimit: 1, disabled: true },
+                { startTime: '13:00', endTime: '14:00', roundName: '第二场13:00-14:00', round: '2026-06-07 13:00-14:00', buyLimit: 1, disabled: true },
+                { startTime: '15:00', endTime: '16:00', roundName: '第三场15:00-16:00', round: '2026-06-07 15:00-16:00', buyLimit: 1, disabled: true }
             ]}
         ]
     }]
@@ -141,7 +139,13 @@ function handleQueryRound(obj) {
     if (obj.code !== 200) {
         obj.code = 200;
         obj.message = '成功';
-        obj.data = {};
+        obj.data = {
+            roundName: '第三场15:00-16:00',
+            round: '2026-05-31 15:00-16:00',
+            imgUrl: 'https://cdn-img.car.miui.com/micar-community-static/445d422a05a547aa8aa711271e0b4abc',
+            isPay: false,
+            buyLimit: 1
+        };
         console.log(`[${scriptName}] ✅ queryCalendarRoundInfo 已放行`);
     }
 }
@@ -156,13 +160,60 @@ function handleCheckSave(obj) {
     }
 }
 
-// 报名表单放行（注入空问卷绕过）
+// 报名表单注入（服务端异常时注入正确表单结构）
 function handleSurvey(obj) {
     if (obj.code !== 200) {
         obj.code = 200;
         obj.message = '成功';
-        obj.data = { surveyList: [] };
-        console.log(`[${scriptName}] ✅ getSignSurveyById 已放行（空问卷）`);
+        obj.data = {
+            populationId: 0,
+            tips: [],
+            formItems: [
+                {
+                    id: '1778636955165',
+                    type: 'username',
+                    required: true,
+                    label: '姓名',
+                    desc: '',
+                    group: 1,
+                    useForQuota: false
+                },
+                {
+                    id: '1778636967360',
+                    type: 'phone',
+                    required: true,
+                    label: '手机号',
+                    desc: '',
+                    group: 1,
+                    useForQuota: false
+                },
+                {
+                    id: '1779796926417',
+                    type: 'picker',
+                    required: false,
+                    label: '您如果购车属于',
+                    desc: '',
+                    defaultValue: '',
+                    options: [
+                        { disabled: false, value: '首次购买汽车', text: '首次购买汽车' },
+                        { disabled: false, value: '置换现有车辆', text: '置换现有车辆' },
+                        { disabled: false, value: '额外添置车辆', text: '额外添置车辆' }
+                    ],
+                    group: 1,
+                    useForQuota: false
+                }
+            ],
+            signUpReturn: {
+                url: 'https://cdn-img.car.miui.com/micar-community-static/1778637005447_dec7021a7b5a4f8890c090e581d04f7b.jpg',
+                title: '恭喜您预约成功',
+                subTitle: '请本人前往粤港澳大湾区车展小米汽车展台，凭借核销码领取车模。',
+                buttonList: [
+                    { title: '查看核销码', type: 'QRCODE' },
+                    { title: '分享喜悦心情', type: 'SHARE' }
+                ]
+            }
+        };
+        console.log(`[${scriptName}] ✅ getSignSurveyById 已注入表单结构`);
     }
 }
 
