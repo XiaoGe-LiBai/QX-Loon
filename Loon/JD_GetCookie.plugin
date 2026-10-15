@@ -1,6 +1,6 @@
 #!name = 京东Cookie/wskey提取与Bncr同步
 #!author = XiaoGe-LiBai
-#!desc = 抓取京东：api.m.jd.com 取 pt_key/pt_pin，sh.jd.com/d 取 wskey；跨请求自动拼装 pin 与 wskey，并同步给服务器。
+#!desc = 抓取京东 8 个域名（api.m / blackhole.m / im-x / seq / gia(s) / jra / sso / sh.jd.com/d）：取 pt_key、pt_pin 与 wskey；跨请求自动拼装 pin 与 wskey，并同步给服务器。
 #!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Photos/jd.png
 #!openUrl = https://apps.apple.com/cn/app/id414245413
 #!tag = 京东,抓包,wskey,Bncr,自动化
@@ -17,8 +17,12 @@ notifyPtKey = switch, true, false, tag=弹窗：pt_key, desc=抓appck时弹窗�
 DOMAIN-SUFFIX,xiaoge.ink,DIRECT
 
 [Script]
-http-request ^https?:\/\/api\.m\.jd\.com\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, argument=[{upload}, {notifyWskey}, {notifyPtKey}], requires-body=false, timeout=60, tag=京东Cookie-pin
-http-request ^https?:\/\/sh\.jd\.com\/d script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, argument=[{upload}, {notifyWskey}, {notifyPtKey}], requires-body=false, timeout=60, tag=京东Cookie-wskey
+# 一条规则覆盖全部抓取域名；脚本内部按「请求里有没有 pt_key / wskey」自判，不区分域名：
+#   api.m.jd.com / blackhole.m.jd.com / im-x.jd.com / seq.jd.com /
+#   gia.jd.com / gias.jd.com / jra.jd.com / sso.jd.com → 取 pt_key + pt_pin
+#   sh.jd.com/d（登录回调，保留精确路径避免多余命中）  → 取 wskey
+# 2026-09-15 抓包实测 sso / jra / gias / blackhole 四个域名都带 pt_key + pt_pin。
+http-request ^https?:\/\/(?:(?:api\.m|blackhole\.m|im-x|seq|gias?|jra|sso)\.jd\.com\/|sh\.jd\.com\/d) script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/Task/jd_cookie.js, argument=[{upload}, {notifyWskey}, {notifyPtKey}], requires-body=false, timeout=60, tag=京东凭据
 
 [MITM]
-hostname = api.m.jd.com, sh.jd.com
+hostname = api.m.jd.com, blackhole.m.jd.com, im-x.jd.com, seq.jd.com, gia.jd.com, gias.jd.com, jra.jd.com, sso.jd.com, sh.jd.com

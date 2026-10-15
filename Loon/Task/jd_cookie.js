@@ -1,9 +1,14 @@
 /**
  * Loon http-request script: 京东凭据提取 → Bncr 静默同步
  *
- * 抓取来源（两条规则，内容自动识别，无需区分域名）：
- *   api.m.jd.com  → pt_key + pt_pin（basicConfig 等接口）
- *   sh.jd.com/d   → wskey（登录票据，可能不含 pin）
+ * 抓取来源（一条规则覆盖多个域名，内容自动识别，脚本不区分域名）：
+ *   api.m.jd.com / blackhole.m.jd.com / im-x.jd.com / seq.jd.com /
+ *   gia.jd.com / gias.jd.com / jra.jd.com / sso.jd.com → pt_key + pt_pin
+ *   sh.jd.com/d                                        → wskey（登录票据，可能不含 pin）
+ * 2026-09-15 抓包实测：sso / jra / gias / blackhole 的请求全都带 pt_key + pt_pin
+ * （pt_key 为 app_open 前缀形态）；wskey 只在 api.m.jd.com 与 sh.jd.com 出现过。
+ * 结论：脚本对域名不敏感，任一域名只要带 pt_key / wskey 都会被受理，
+ * 多写域名只是多几个「命中机会」，不会互相干扰。
  *
  * 关键：JD App 在 HTTP/2 下会把 Cookie 拆成十几个同名 cookie 头
  * （实测 api.m.jd.com 一次请求 19 个，pt_key 排在第 15 个）。
@@ -12,6 +17,10 @@
  *
  * 片段拼装：pin 与 wskey 常分属不同请求，脚本把 pin 记忆到本地（12 小时有效），
  * 遇到只有 wskey 的请求时自动回填。
+ * 记忆只由「携带 pt_key/wskey 的请求」刷新 —— 京东 App 的 netDiag 网络诊断探针
+ * （GET /api?appid=netDiag → {"mgs":"mock"}）只带 pt_pin=unitRouterTest 这种占位值，
+ * 旧版无条件记忆，真实 pin 被它覆盖，之后只带 wskey 的请求就被拼成
+ * pin=unitRouterTest;wskey=…（垃圾剪贴板就是这么来的）。
  *
  * 去重：pt_key 与 wskey 各自记「最近一次受理的凭据」。凭据未变 → 直接放行。
  * 必须分开记 —— 合并成单个指纹会让两者互相覆盖，导致重复上报。
@@ -55,6 +64,7 @@ const BNCR_ENDPOINTS = [
 const BNCR_AUTH_TOKEN = "96358b36fc0769de2c8373d5e3582bb9";
 
 const PIN_TTL_MS = 12 * 60 * 60 * 1000;      // pin 记忆有效期
+const PIN_REFRESH_MS = 30 * 60 * 1000;       // 同一 pin 的落盘节流窗口（多域名命中时避免反复写盘）
 const HIT_LOG_INTERVAL_MS = 10 * 1000;       // 无凭据时的命中日志限流间隔
 
 const STORE_PIN = "jd_loon_pin";             // {pin, raw, ts}
@@ -64,7 +74,7 @@ const STORE_HIT_TS = "jd_loon_hit_ts";       // 命中日志限流时间戳
 const STORE_DIAG_PREFIX = "jd_loon_diag_";   // 诊断通知标记（按版本+账号，每人每版至多 1 条）
 const STORE_WSKEY_POP_PREFIX = "jd_loon_wskeypop_"; // 每账号最近一次已弹窗的 wskey（不回滚：弹窗是抓包事件，与上报成败无关）
 
-const SCRIPT_VERSION = "2026-09-16.10";      // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
+const SCRIPT_VERSION = "2026-09-16.11";      // 改脚本时同步更新，日志与诊断通知都会显示，便于确认线上跑的是哪一版
 
 // 界面开关的代码内默认值。$argument 缺失或取值异常时以这里为准，
 // 避免「Loon 没把参数传下来 ⇒ 静默关掉上报」这类哑掉的情况。
@@ -112,11 +122,19 @@ const ARG_DEFAULTS = {
       console.log(`[京东凭据 v${SCRIPT_VERSION}] 命中 ${ctx.host} | cookie头 ${ctx.cookieHeaders} 个 | pt_key ${yn(ctx.ptKey)} pt_pin ${yn(ctx.rawPin)} wskey ${yn(ctx.wskey)}`);
     }
 
-    // pin 记忆：命中即刷新，未命中则回填最近一次（供 sh.jd.com 这类无 pin 的请求配对）
-    if (ctx.rawPin) {
-      const pin = decodePin(ctx.rawPin);
-      $persistentStore.write(JSON.stringify({ pin: pin, raw: ctx.rawPin, ts: Date.now() }), STORE_PIN);
+    // pin 记忆：命中即刷新，未命中则回填最近一次（供 sh.jd.com 这类无 pin 的请求配对）。
+    // 只有「携带凭据」的请求才有资格刷新记忆 —— 理由见 rememberPin 的注释。
+    const pin = ctx.rawPin ? decodePin(ctx.rawPin) : "";
+
+    if (pin && (ctx.ptKey || ctx.wskey)) {
+      rememberPin(pin, ctx.rawPin);
       return handle(pin, ctx.rawPin, ctx);
+    }
+
+    if (pin) {
+      // 只有 pt_pin 没有任何凭据：netDiag 之类的探针，只放行、不污染记忆
+      hitLog(ctx.isDebug, `${ctx.host} | 只有 pt_pin=${pin}、无 pt_key/wskey（诊断探针？）→ 不刷新 pin 记忆，放行`);
+      return $done({});
     }
 
     const recalled = recallPin();
@@ -247,7 +265,8 @@ function handle(pin, rawPin, ctx) {
  * 带降级的上报（两个域名并发，任一成功即算成功）：
  *   1) 用指定出口（默认 DIRECT）并发打所有域名 —— 任一成功即成功
  *   2) 全部失败且指定了出口 → 退回「当前路由」再并发打一轮
- * 两轮都失败才判定失败。失败不写去重记录，下次请求自然重试。
+ * 两轮都失败才判定失败。失败会按值回滚去重记录（不是「不写」—— 同步段已抢占式写入，
+ * 见 handle 的注释），下一个请求因此能自然重试。
  */
 function sendUpload(route, payload, done) {
   uploadRound(route, payload, function (first) {
@@ -470,17 +489,34 @@ function yn(value) {
 }
 
 /**
- * 读取 pin 记忆
+ * 记住 pin（供 sh.jd.com 这类无 pin 的请求配对）。
+ *
+ * 两条纪律：
+ *   1) 只有「本次请求真的带了 pt_key 或 wskey」时才允许调用 —— 京东 App 的
+ *      netDiag 探针会带 pt_pin=unitRouterTest 这种占位值，若无条件记忆，
+ *      真实 pin 会被覆盖，之后只带 wskey 的请求就拼成 unitRouterTest 了。
+ *   2) 同一 pin 在节流窗口内不重复落盘 —— 规则覆盖 8 个域名后命中次数暴涨，
+ *      每次写一次 plist 属无谓开销；窗口远小于 TTL，不会让记忆提前失效。
+ */
+function rememberPin(pin, rawPin) {
+  const prev = recallPin();
+  if (prev.pin === pin && Date.now() - prev.ts < PIN_REFRESH_MS) return;
+  $persistentStore.write(JSON.stringify({ pin: pin, raw: rawPin, ts: Date.now() }), STORE_PIN);
+}
+
+/**
+ * 读取 pin 记忆（含写入时间戳，供节流判断）
  */
 function recallPin() {
   const raw = $persistentStore.read(STORE_PIN);
-  if (!raw) return { pin: "", raw: "" };
+  if (!raw) return { pin: "", raw: "", ts: 0 };
   try {
     const data = JSON.parse(raw);
-    if (Date.now() - Number(data.ts || 0) > PIN_TTL_MS) return { pin: "", raw: "" };
-    return { pin: String(data.pin || ""), raw: String(data.raw || "") };
+    const ts = Number(data.ts || 0);
+    if (Date.now() - ts > PIN_TTL_MS) return { pin: "", raw: "", ts: 0 };
+    return { pin: String(data.pin || ""), raw: String(data.raw || ""), ts: ts };
   } catch (e) {
-    return { pin: "", raw: "" };
+    return { pin: "", raw: "", ts: 0 };
   }
 }
 
