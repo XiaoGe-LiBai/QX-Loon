@@ -1,0 +1,11 @@
+#!name = 同程旅行-萌力值兑换按钮点亮
+#!desc = 点亮「萌力值兑换」里置灰的兑换按钮（库存不足/已兑换/萌力值不足），并放行加企微好友的前端拦截
+#!author = XiaoGe-LiBai
+#!date = 2026-10-17
+#!openUrl = https://wx.17u.cn/cvgfront-common/activity/20260819dailyCheckIn/
+
+[Script]
+http-response ^https?:\/\/cvg\.17usoft\.com\/activity\/(signInCash|leadGeneration)\/ script-path=https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Loon/Task/Tongcheng_ExchangeButtonUnlock.js, requires-body=true, timeout=30, tag=同程萌力值兑换点亮
+
+[MITM]
+hostname = cvg.17usoft.com

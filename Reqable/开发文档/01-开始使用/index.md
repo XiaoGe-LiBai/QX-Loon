@@ -1,0 +1,27 @@
+# 开始使用
+
+## 下载
+
+Reqable推荐下载[最新版本](https://reqable.com/zh-CN/download/)， 如果您有其他考虑也可以下载[历史版本](https://github.com/reqable/reqable-app/releases)。
+
+## 安装
+
+### Windows
+
+在Windows上，您可以下载安装程序`Setup.exe`或者免安装的绿色版本压缩包。一般建议使用安装程序`Setup.exe`安装，自动配置注册表，关联`HAR`等文件格式。
+
+### Mac
+
+在Mac设备上，Reqable提供了Apple芯片和Intel芯片两种架构的安装包。如果下载DMG文件，打开后拖拽进`应用程序`文件夹即可；如果是使用`Homebrew`，输入下面命令行即可自动安装：
+```shell
+brew install reqable
+```
+
+### Linux
+
+Linux版本依赖GTK库，安装前请确认系统是否已经安装了GTK。Linux安装程序是deb文件，我们目前只提供了x64的架构版本，使用apt安装即可:
+```shell
+sudo apt install reqable-app-linux-x86_64.deb
+```
+
+## 开始教程

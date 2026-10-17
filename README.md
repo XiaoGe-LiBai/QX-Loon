@@ -15,11 +15,13 @@
 - **京东金融**: 积分商城状态修改
 - **达美乐**: Token 抓取
 - **小米汽车**: 活动详情按钮解锁
+- **同程旅行**: 萌力值兑换按钮点亮
 
 ### Reqable 脚本
 Python 脚本，在 Reqable 中处理 HTTP 流量：
 - **小米汽车社区**: 活动详情按钮解锁 + 报名状态开放
 - **爱奇艺**: 秒杀按钮点亮
+- **同程旅行**: 萌力值兑换按钮点亮
 
 ---
 
@@ -38,6 +40,9 @@ https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/dml_token.plugi
 
 # 京东Cookie/wskey提取（静默同步 Bncr）
 https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/JD_GetCookie.plugin
+
+# 同程旅行萌力值兑换按钮点亮
+https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/main/Loon/同程旅行_萌力值兑换按钮点亮.plugin
 ```
 
 ### Reqable 脚本使用

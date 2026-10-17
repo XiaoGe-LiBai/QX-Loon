@@ -1,0 +1,109 @@
+# 脚本
+
+
+脚本是Reqable的核心调试功能之一，支持编写python脚本处理HTTP请求和响应。Reqable提供了一套基于Python的API，在脚本中，我们可以对请求和响应的数据进行修改、替换或者删除，甚至还可以中断请求和响应。除了使用Reqable内置的API，用户还可以使用自己安装的各种Python包，例如requests等。
+
+脚本可以通过菜单`调试` -> `脚本` -> `启用`开启脚本功能（快捷键<kbd>Shift + Control + P</kbd>），在脚本开启后，快捷操作栏上的将会显示脚本激活的图标。
+
+![](arts/script_01.png)
+
+点击以上图标，可以关闭脚本功能，脚本关闭后，图标将从快捷操作栏上消失。如果希望脚本功能图标常驻在快捷操作栏，可以使用右键快捷操作栏自定义进行固定。
+
+![](arts/script_02.png)
+
+> ℹ️ **说明**
+>
+>
+> 为防止功能滥用，Reqable在移动端不提供此功能。
+>
+
+
+### 创建规则
+
+创建一个脚本规则有下面几种方式：
+- 调试菜单 -> 脚本 -> 添加规则
+- 右键脚本图标 -> 添加规则
+- 托盘 -> 脚本 -> 添加规则
+- 脚本列表 -> 新建按钮
+- 脚本列表 -> 右键菜单 -> 新建
+- 调试列表 -> 选中一个列表项 -> 右键菜单 -> 脚本
+- 快捷键 <kbd>Shift + Alt + P</kbd>
+
+输入规则名称和匹配的URL，URL支持简单的Wildcard * 和 ? 匹配，然后编写Python脚本分别处理HTTP请求和响应。
+
+![](arts/script_03.png)
+
+### 编写脚本
+
+脚本使用python3运行，必须使用python3的语法。脚本提供两个函数调用入口：`onRequest`和`onResponse`，顾名思义即请求和响应。
+
+脚本修改后会自动保存，也可以手动使用快捷键 <kbd>Control + S</kbd> 立即保存。
+
+#### onRequest
+
+此函数在客户端请求发送给服务器前被调用，开发者可以在此函数作用域内对请求进行修改。
+函数接收两个参数[CaptureContext](addons#api-context)和[HttpRequest](addons#api-request)并返回[HttpRequest](addons#api-request)。
+
+> ℹ️ **说明（请求中断）**
+>
+>
+> 如果需要中断此请求，onRequest函数结果返回`None`即可！
+>
+
+
+#### onResponse
+
+此函数在服务端响应发送给客户端前被调用，开发者可以在此函数作用域内对响应进行修改。
+函数接收两个参数[CaptureContext](addons#api-context)和[HttpResponse](addons#api-response)并返回[HttpResponse](addons#api-response)。
+
+> ℹ️ **说明（响应中断）**
+>
+>
+> 如果需要中断此响应，onResponse函数结果返回`None`即可！
+>
+
+
+#### 生命周期
+
+需要注意的是，`onRequest` 和 `onResponse` 两个函数的分别运行在不同的进程中，所以两个函数无法直接共享外部变量。如果需要共享数据，请使用[CaptureContext](addons#api-context)的 `shared` 变量。
+
+```python
+def onRequest(context, request):
+  context.shared = 'foobar'
+  return request
+
+def onResponse(context, response):
+  print(context.shared) # print foobar
+  return response
+```
+
+### API说明
+已迁移至[脚本API](addons)！
+
+### 调试控制台
+
+Reqable提供了脚本控制台功能，方便开发人员查看脚本的日志输出，以及脚本报错的backtrace信息。在脚本执行的过程中保持脚本编辑器窗口打开，所有的信息都会实时输出到右侧的控制台中。
+
+![](arts/script_04.png)
+
+上图示例中，我们编写了一个除零错误，控制台中也产生了相应的报错信息。
+
+### 运行环境
+脚本功能依赖于本机的python3环境，请务必保证本机设备上安装了python3。新手请参考[Python3下载和安装](https://www.runoob.com/python3/python3-install.html)。
+
+> 🚨 **警示**
+>
+>
+> **要求Python3版本必须大于 3.6**
+>
+
+
+如果本机上有多个python3环境，可以手动指定Python3 Home路径：**右击脚本图标 -> 设置环境**
+
+![](arts/script_05.png)
+
+### 管理规则
+
+规则从上往下进行匹配，同一个请求可以匹配多个规则，越靠前越先执行。规则支持文件夹级别的管理，长按后拖动可以调整位置。同时支持导入和导出，方便与他人进行分享和协同。
+
+![](arts/script_06.png)
