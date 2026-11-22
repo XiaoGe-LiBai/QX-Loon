@@ -2,6 +2,7 @@
 #!desc = 点亮「萌力值兑换」里置灰的兑换按钮（库存不足/已兑换/萌力值不足），并放行加企微好友的前端拦截
 #!author = XiaoGe-LiBai
 #!date = 2026-10-17
+#!icon = https://raw.githubusercontent.com/XiaoGe-LiBai/QX-Loon/refs/heads/main/Photos/tongcheng.png
 #!openUrl = https://wx.17u.cn/cvgfront-common/activity/20260819dailyCheckIn/
 
 [Script]
